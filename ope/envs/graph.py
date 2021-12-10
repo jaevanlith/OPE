@@ -28,7 +28,7 @@ class Graph(object):
 		self.state_to_pomdp_state[0] = 0
 		self.state_to_pomdp_state[2*max_length-1] = number_of_pomdp_states-1
 
-		print(self.state_to_pomdp_state)
+		# print(self.state_to_pomdp_state)
 		self.transitions_deterministic = transitions_deterministic
 		self.slippage = .25
 		self.max_length = max_length

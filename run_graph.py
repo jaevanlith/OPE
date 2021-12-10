@@ -1,37 +1,56 @@
 import numpy as np
+import pickle
+from matplotlib import pyplot as plt
+from datetime import date
 
 from ope.envs.graph import Graph
-from ope.policies.basics import BasicPolicy
-
+from ope.models.basics import BasicPolicy
 from ope.experiment_tools.experiment import ExperimentRunner, analysis
 from ope.experiment_tools.config import Config
+from ope.utils import make_seed
+from neurips_seeds import weighted_graph_args, unweighted_graph_args
+from neurips_plotting import neurips_plot
 
 
-def main():
+def run(experiment_args):
 
     runner = ExperimentRunner()
 
-    # run 5 experiments
-    for N in range(5):
+    seeds  = []
+    all_N_vals = []
+    for t in range(experiment_args["num_trials"]): # Number of trials, config file for each trial.
+
+        # Set random seed for trial.
+        if experiment_args["seeds"] is None: seed = make_seed()
+        else: seed = experiment_args["seeds"][t]
+        seeds.append(seed)
+
+        # For each trial, generate a single large dataset with the largest Nval.
+        # For each Nval, we will compute the estimate for that value on the same dataset.
+        max_Nval = max(experiment_args["Nvals"])
+        all_N_vals += experiment_args["Nvals"]
 
         # basic configuration with varying number of trajectories
         configuration = {
-            "gamma": 0.98,
-            "horizon": 4,
-            "base_policy": .8,
-            "eval_policy": .2,
+            "gamma": experiment_args["gamma"],
+            "horizon": experiment_args["horizon"],
+            "base_policy": experiment_args["p0"],
+            "eval_policy": experiment_args["p1"],
             "stochastic_env": True,
             "stochastic_rewards": False,
             "sparse_rewards": False,
-            "num_traj": 8*2**N,
+            "num_traj": max_Nval,
+            "Nvals": experiment_args["Nvals"], # Compute value of estimate for these data sizes
             "is_pomdp": False,
             "pomdp_horizon": 2,
-            "seed": 1000,
+            "seed": seed,
             "experiment_number": 0,
             "access": 0,
             "secret": 0,
             "modeltype": "tabular",
             "to_regress_pi_b": False,
+            "nstep_int": 1,
+            "weighted": experiment_args["weighted"]
         }
 
         # store them
@@ -72,7 +91,7 @@ def main():
 
         # Decide which OPE methods to run.
         # Currently only all is available
-        cfg.add({'models': 'all'})
+        cfg.add({'models': experiment_args["models"]})
 
         # Add the configuration
         runner.add(cfg)
@@ -80,12 +99,15 @@ def main():
     # Run the configurations
     results = runner.run()
 
-    # print results
-    for result in results:
-        analysis(result)
+    return results, {'seeds':seeds, 'args': experiment_args}
 
 
 if __name__ == '__main__':
-    # Local:
-    # python example.py
-    main()
+    # Run trials.
+    unweighted_graph_results = run(unweighted_graph_args)
+    weighted_graph_results = run(weighted_graph_args)
+
+    # Plot
+    neurips_plot(unweighted_graph_results, "unweighted_graph_plot", cycler_small=True)
+    neurips_plot(weighted_graph_results, "weighted_graph_plot", cycler_small=True)
+

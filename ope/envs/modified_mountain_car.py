@@ -5,7 +5,7 @@ import numpy as np
 import gym
 from gym import spaces
 from gym.envs.classic_control import MountainCarEnv
-from gym.envs.classic_control.rendering import Viewer
+# from gym.envs.classic_control.rendering import Viewer
 from gym.utils import seeding
 from skimage import draw
 from skimage.transform import rescale, resize, downscale_local_mean

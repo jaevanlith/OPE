@@ -2,43 +2,18 @@ import sys
 import numpy as np
 import pandas as pd
 from functools import reduce
-from ope.policies.basics import BasicPolicy, SingleTrajectory
-from ope.policies.epsilon_greedy_policy import EGreedyPolicy
+from ope.models.basics import BasicPolicy, SingleTrajectory
+from ope.models.epsilon_greedy_policy import EGreedyPolicy
 from tqdm import tqdm
 import itertools
 
 class DoublyRobust_v2(object):
-    """Algorithm: Doubly Robust (DR).
-    """
     def __init__(self, gamma):
-        """
-        Parameters
-        ----------
-        gamma : float
-            Discount factor.
-        """
         self.gamma = gamma
 
     def evaluate(self, info, is_wdr=False, return_Qs=False):
-        """Get DR estimate from Q + IPS.
 
-        Parameters
-        ----------
-        info : list
-            [list of actions, list of rewards, list of base propensity, list of target propensity, list of Qhat]
-        is_wdr : bool
-            Use Weighted Doubly Robust?
-        return_Qs : bool
-            Return trajectory-wise estimate alongside full DR estimate? 
-        
-        Returns
-        -------
-        float
-            DR estimate
 
-            If return_Qs is true, also returns trajectory-wise estimate
-        """
-        
         (actions,
         rewards,
         base_propensity,

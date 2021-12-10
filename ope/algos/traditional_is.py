@@ -6,34 +6,10 @@ from typing import List
 import numpy as np
 
 class TraditionalIS(object):
-    """Algorithm: Importance Sampling, Inverse-Propensity Scoring (IS/IPS).
-    """
     def __init__(self, gamma):
-        """
-        Parameters
-        ----------
-        gamma : float
-            Discount factor.
-        """
         self.gamma = gamma
 
     def evaluate(self, info, return_Qs=False):
-        """Get Seq-DR estimate from Q + IPS.
-
-        Parameters
-        ----------
-        info : list
-            [list of actions, list of rewards, list of base propensity, list of target propensity, list of Qhat]
-        
-        Returns
-        -------
-        float, float, float, float, float
-            Naive-estimate based on just averaging rewards in the dataset,
-            Importance sampling,
-            Per-Decision IS,
-            Weighted IS,
-            Per-Decision Weighted IS
-        """
 
         (actions,
         rewards,
@@ -93,7 +69,8 @@ class TraditionalIS(object):
             return x_equal_length
 
         ws = np.sum(np.cumprod(to_equal_length(episode_rhos, 1), axis=1), axis=0)
-        V_step_IS = [np.sum(self.gamma**np.arange(len(rews)) * np.cumprod(rhos) / ws[:len(rhos)] * np.array(rews))  for rhos, rews in zip(episode_rhos, episode_rews)]
+        V_step_IS = [np.sum(self.gamma**np.arange(len(rews)) * (np.cumprod(rhos) / ws[:len(rhos)]) * np.array(rews))  for rhos, rews in zip(episode_rhos, episode_rews)]
+
         if return_Qs:
             return np.sum(V_step_IS), np.array(V_step_IS)
         else:

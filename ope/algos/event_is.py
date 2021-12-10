@@ -1,3 +1,5 @@
+# Interpolation via n-step interpolation implemented.
+ 
 import numpy as np
 import tensorflow as tf
 from time import sleep
@@ -33,15 +35,20 @@ NUMBER_OF_REPEATS = 1
 
 from ope.utils import keyboard
 
-class InfiniteHorizonOPE(object):
-    def __init__(self, data, w_hidden, Learning_rate, reg_weight, gamma, discrete, modeltype, env=None, processor=None, weighted=True):
+class EventIS(object):
+    def __init__(self, data, w_hidden, Learning_rate, reg_weight, gamma, discrete, modeltype, interp_type="n-step", env=None, processor=None, weighted=True):
+        """
+        Default interpolation is n-step with n-set to 0. This gives us standard PDIS.
+        """
 
         self.data = data
         self.modeltype = modeltype
         self.gamma = gamma
         self.is_discrete = discrete
         self.processor = processor
+        self.interp_type = interp_type
         self.weighted = weighted
+        self.lr = Learning_rate
 
         if self.is_discrete:
             self.obs_dim = env.num_states() if env is not None else self.data.num_states()
@@ -116,11 +123,12 @@ class InfiniteHorizonOPE(object):
             trainable_model = keras.models.Model(inputs=[state,next_state,policy_ratio,isStart,median_dist], outputs=[w])
             w_model = keras.models.Model(inputs=[state], outputs=w)
 
-        # rmsprop = keras.optimizers.RMSprop(lr=0.001, rho=0.95, epsilon=1e-08, decay=1e-3)#, clipnorm=1.)
-        adam = keras.optimizers.Adam()
+        rmsprop = keras.optimizers.RMSprop(lr=self.lr, rho=0.95, epsilon=1e-08, decay=1e-3)#, clipnorm=1.)
+        adam = keras.optimizers.Adam(lr=self.lr)
 
         trainable_model.add_loss(self.IH_loss(next_state,w,w_next,policy_ratio,isStart, median_dist, self.modeltype))
-        trainable_model.compile(loss=None, optimizer=adam, metrics=['accuracy'])
+        trainable_model.compile(loss=None, optimizer=rmsprop, metrics=['accuracy'])
+        # trainable_model.compile(loss=None, optimizer=adam, metrics=['accuracy'])
         return trainable_model, w_model
 
     @staticmethod
@@ -168,26 +176,25 @@ class InfiniteHorizonOPE(object):
             self.trainable_model = trainable_model
         values = []
 
-        print('Training: IH')
         losses = []
-        for k in tqdm(range(max_epochs)):
+        for k in tqdm(range(1)):
 
             dataset_length = self.data.num_tuples()
             perm = np.random.permutation(range(dataset_length))
-            eighty_percent_of_set = int(1.*len(perm))
+            eighty_percent_of_set = int(0.8*len(perm))
             training_idxs = perm[:eighty_percent_of_set]
             validation_idxs = perm[eighty_percent_of_set:]
             training_steps_per_epoch = max(500, int(.03 * np.ceil(len(training_idxs)/float(batch_size))))
             # training_steps_per_epoch = 1 #int(1. * np.ceil(len(training_idxs)/float(batch_size)))
-            validation_steps_per_epoch = int(np.ceil(len(validation_idxs)/float(batch_size)))
+            validation_steps_per_epoch = max(200, int(np.ceil(len(validation_idxs)/float(batch_size))))
             train_gen = self.generator(env, training_idxs, fixed_permutation=True, batch_size=batch_size)
-            # val_gen = self.generator(env, validation_idxs, fixed_permutation=True, batch_size=batch_size)
+            val_gen = self.generator(env, validation_idxs, fixed_permutation=True, batch_size=batch_size)
 
             M = 5
             hist = self.trainable_model.fit_generator(train_gen,
                                steps_per_epoch=training_steps_per_epoch,
-                               # validation_data=val_gen,
-                               # validation_steps=validation_steps_per_epoch,
+                               validation_data=val_gen,
+                               validation_steps=validation_steps_per_epoch,
                                epochs=max_epochs,
                                max_queue_size=50,
                                workers=1,
@@ -353,18 +360,32 @@ class InfiniteHorizonOPE(object):
             pi.append(pi_)
         return np.array(pi)
 
-    def evaluate(self, env, max_epochs, matrix_size):
+    def evaluate(self, env, max_epochs, matrix_size, nstep_int=1, nstep_custom_ns=None):
         dataset = self.data
+        all_event_estimates = {}
+
         if self.is_discrete:
             REW = dataset.rewards()
             ACTS = dataset.actions()
 
-            W = self.estimate_density_ratios(env, max_epochs, matrix_size)
+            density_ratios = self.estimate_density_ratios(env, max_epochs, matrix_size) 
 
             PI0 = self.get_probs_per_action(dataset.base_propensity(), ACTS)
             PI1 = self.get_probs_per_action(dataset.target_propensity(), ACTS)
-            DISC_FACTORS = np.repeat(np.atleast_2d(self.gamma**np.arange(REW.shape[1])), REW.shape[0], axis=0).reshape(REW.shape)
-            return self.off_policy_estimator_density_ratio(REW, DISC_FACTORS, (PI1/PI0), W)
+            is_weights = (PI1 / PI0)
+
+            DISC_FACTORS = np.repeat(np.atleast_2d(self.gamma**np.arange(REW.shape[1])), 
+              REW.shape[0], axis=0).reshape(REW.shape)
+          
+            if (nstep_custom_ns is not None):
+              for interp_param in nstep_custom_ns:
+                  all_event_estimates[interp_param] = self.off_policy_estimator_event(self.interp_type, interp_param, REW, DISC_FACTORS, is_weights, density_ratios, weighted=self.weighted)
+            else:
+              for interp_param in range(0, dataset.states().shape[1]+1, nstep_int):
+                  all_event_estimates[interp_param] = self.off_policy_estimator_event(self.interp_type, interp_param, REW, DISC_FACTORS, is_weights, density_ratios, weighted=self.weighted)
+
+            return all_event_estimates
+
 
         else:
 
@@ -373,18 +394,16 @@ class InfiniteHorizonOPE(object):
             self.state_to_w = self.run_NN(env, max_epochs, batch_size, epsilon=0.001)
 
 
-            S = self.data.states() #np.hstack([self.data.states()[:,[0]], self.data.states()])
+            S = self.data.states() # [num_traj, horizon, ...]
             ACTS = self.data.actions() #np.hstack([np.zeros_like(self.data.actions()[:,[0]]), self.data.actions()])
             PI0  = self.get_probs_per_action(self.data.base_propensity(), ACTS)
             PI1  = self.get_probs_per_action(self.data.target_propensity(), ACTS)
             REW = self.data.rewards() #np.hstack([np.zeros_like(self.data.rewards()[:,[0]]), self.data.rewards()])
             DISC_FACTORS = np.repeat(np.atleast_2d(self.gamma**np.arange(REW.shape[1])), REW.shape[0], axis=0).reshape(REW.shape)
+            (num_traj, horizon) = REW.shape
 
             S = np.vstack(S)
-            PI1 = PI1.reshape(-1)
-            PI0 = PI0.reshape(-1)
-            REW = REW.reshape(-1)
-            DISC_FACTORS = DISC_FACTORS.reshape(-1)
+            is_weights = (PI1 / PI0)
 
             predict_batch_size = max(128, batch_size)
             steps = int(np.ceil(S.shape[0]/float(predict_batch_size)))
@@ -399,13 +418,56 @@ class InfiniteHorizonOPE(object):
                     s = S[batch_idxs]
                     s = s.reshape(s.shape[0], -1)
                     densities.append(self.state_to_w.predict(s))
+            densities = np.vstack(densities).reshape(-1).reshape(num_traj, horizon)
 
-            densities = np.vstack(densities).reshape(-1)
-            return self.off_policy_estimator_density_ratio(REW, DISC_FACTORS, PI1/PI0, densities)
+            if (nstep_custom_ns is not None):
+                for interp_param in nstep_custom_ns:
+                    all_event_estimates[interp_param] = self.off_policy_estimator_event(
+                        self.interp_type, interp_param, REW, DISC_FACTORS, is_weights,
+                        densities, weighted=self.weighted)
+            else:
+                for interp_param in range(0, dataset.states().shape[1]+1, nstep_int):
+                    all_event_estimates[interp_param] = self.off_policy_estimator_event(
+                        self.interp_type, interp_param, REW, DISC_FACTORS, is_weights, densities, 
+                        weighted=self.weighted)
+
+            return all_event_estimates
+
+
 
     @staticmethod
-    def off_policy_estimator_density_ratio(rew, prob, ratio, den_r):
-        return np.sum(prob * den_r * ratio * rew)/np.sum(prob * den_r * ratio)
+    def off_policy_estimator_event(interp_type, interp_param, rew, disc_factor, is_weights, den_ratio, weighted):
+        (num_traj, horizon) = rew.shape
+
+        if (interp_type == "n-step"):
+            interp_n = interp_param 
+
+            event_est = 0
+            for t in range(horizon):
+                prod_is_weights = np.prod(is_weights[:, max(t-interp_n, 0):t+1], axis=1)
+                drop_den_ratio = den_ratio[:, t-interp_n] if t >= interp_n else np.ones(num_traj)
+                r_t = rew[:, t]
+                t_sum = np.sum(disc_factor[:,t] * drop_den_ratio * prod_is_weights * rew[:,t])
+                t_weight = np.sum(drop_den_ratio * prod_is_weights)
+                event_est += t_sum / t_weight if weighted else t_sum / num_traj
+
+        else:
+            raise ValueError("Please specify valid interpolation type")
+
+        return event_est
+
+    @staticmethod
+    def off_policy_estimator_density_ratio(rew, disc_factor, ratio, den_r, weighted):
+        (num_traj, horizon) = rew.shape
+
+        ih_est = np.sum(disc_factor * den_r * ratio * rew)
+        if weighted: 
+            ih_est /= np.sum(disc_factor * den_r * ratio)
+        else:
+            ih_est /= num_traj
+          
+        return ih_est
+
 
     def get_model_params(self):
         # get trainable params.
