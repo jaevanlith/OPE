@@ -1,7 +1,7 @@
 # SOPE: Spectrum of Off-Policy Estimators
 
 This respository contains code for the following [paper](https://arxiv.org/abs/2111.03936):
-> C. Yuan, Y. Chandak, S. Giguere, P.S. Thomas, and S. Niekum. 
+> C.J. Yuan, Y. Chandak, S. Giguere, P.S. Thomas, and S. Niekum. 
 SOPE: Spectrum of Off-Policy Estimators.
 Neural Information Processing Systems (NeurIPS), December 2021. 
 
