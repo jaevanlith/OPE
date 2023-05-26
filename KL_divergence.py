@@ -1,20 +1,10 @@
 import numpy as np
-from scipy.integrate import quad
 from scipy.optimize import fsolve
-import matplotlib.pyplot as plt
 from ope.envs.graph import Graph
-
-# initialize environment
-env = Graph(make_pomdp=False,
-            number_of_pomdp_states=2,
-            transitions_deterministic=False,
-            max_length=3,
-            sparse_rewards=False,
-            stochastic_rewards=False)
 
 
 # Construct matrix P
-def p_matrix(env: Graph, p):
+def p_pi(env: Graph, p):
     # Check if deterministic
     if env.transitions_deterministic:
         slippage = 0
@@ -50,45 +40,82 @@ def p_matrix(env: Graph, p):
 
     return P
 
-def d_state_visitation(P, gamma):
+# Compute stationary state distribution
+def d_pi(env: Graph, p, gamma=0.98):
+    # Construct matrix P
+    P = p_pi(env, p)
+
+    # Set initial state distribution
     s0 = np.zeros(len(P))
     s0[0] = 1
-    print(s0)
 
-    d = (1 - gamma) * np.linalg.inv(np.eye(len(P)) - gamma * P) @ s0
+    # Compute stationary state distr
+    # NOTE: TRANSPOSE OF P TO TRY
+    d = (1 - gamma) * np.linalg.inv(np.eye(len(P)) - gamma * np.transpose(P)) @ s0
+    # Normalize
+    d /= np.sum(d)
+
     return d
 
-P = p_matrix(env, 1)
-d = d_state_visitation(P, 0.8)
-print(d)
+# Compute KL divergence between two policies
+def kl_divergence(env: Graph, p, q, gamma=0.98):
+    delta = 1e-15
+    
+    # Get stationary state distribution of both policies
+    d_b = d_pi(env, q, gamma)
+    d_e = d_pi(env, p, gamma)
+    
+    d_e += delta
+    
+    # Compute KL divergence
+    kl = np.sum(d_b * np.log(np.divide(d_b, d_e) + delta))
 
+    return kl
 
+# Equation to solve
+def func(p, q, target_kl):
+    # Compute KL
+    kl = kl_divergence(env, p, q)
 
-# k = 0.23
-# nu = 10.0
-# Fao = 1.0
+    # Subtract from wanted KL
+    return target_kl - kl
 
-# def ssd(s, p):
-#     if (s % 2) == 0:
-#         return 0,75 * (1-p) + 0,25 * p
-#     else:
-#         return 0,75 * p + 0,25 * (1-p)
+# Get policy corresponding to wanted KL divergence
+def get_evaluation_policy(kl_target, q, p_guess):
+    p = fsolve(func, p_guess, (q, kl_target))
+    return p[0]
 
-# def integrand(Fa):
-#     return 
+# TEST
+# Init environment
+env = Graph(make_pomdp=False,
+            number_of_pomdp_states=2,
+            transitions_deterministic=True,
+            max_length=3,
+            sparse_rewards=False,
+            stochastic_rewards=False)
 
-# def func(Fa):
-#     integral,err = quad(integrand, Fao, Fa)
-#     return 100.0 - integral
+# Init params
+kl_target = 0
+q = 1
+p_guess = 0
 
-# vfunc = np.vectorize(func)
+# Run final method
+p = get_evaluation_policy(kl_target, q, p_guess)
+print(round(p,3))
 
-# f = np.linspace(0.01, 1)
-# plt.plot(f, vfunc(f))
-# plt.xlabel('Molar flow rate')
-# plt.savefig('integral-eqn-guess.png')
-# plt.show()
+# Run state-visitation
+print('P_pi for p=1:')
+print(p_pi(env, 1))
+print('\n')
 
-# Fa_guess = 0.1
-# Fa_exit, = fsolve(vfunc, Fa_guess)
-# print(Fa_exit)
+print('d_pi for p=1:')
+print(d_pi(env, 1))
+print('\n')
+
+print('P_pi for p=0:')
+print(p_pi(env, 0))
+print('\n')
+
+print('d_pi for p=0:')
+print(d_pi(env, 0))
+print('\n')
