@@ -1,6 +1,10 @@
 import numpy as np
 from scipy.optimize import fsolve
 from ope.envs.graph import Graph
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib.ticker import LinearLocator
 
 
 # Construct matrix P
@@ -58,7 +62,7 @@ def d_pi(env: Graph, p, gamma=0.98):
     return d
 
 # Compute KL divergence between two policies
-def kl_divergence(env: Graph, p, q, gamma=0.98):
+def kl_divergence(env: Graph, p, q, gamma=0.8):
     delta = 1e-15
     
     # Get stationary state distribution of both policies
@@ -73,7 +77,7 @@ def kl_divergence(env: Graph, p, q, gamma=0.98):
     return kl
 
 # Equation to solve
-def func(p, q, target_kl):
+def func(p, env: Graph, q, target_kl):
     # Compute KL
     kl = kl_divergence(env, p, q)
 
@@ -81,41 +85,61 @@ def func(p, q, target_kl):
     return target_kl - kl
 
 # Get policy corresponding to wanted KL divergence
-def get_evaluation_policy(kl_target, q, p_guess):
-    p = fsolve(func, p_guess, (q, kl_target))
+def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
+    # Solve to find the wanted p-value
+    p = fsolve(func, p_guess, (env, q, kl_target))
     return p[0]
+
+# Get max KL value
+def get_kl_max(q_fixed, n):
+    # Init all the possible values for p
+    p = np.linspace(0, 1, n)
+    q = np.linspace(0, 1, n)
+    pv, qv = np.meshgrid(p,q)
+    # Init KL's
+    kl = np.zeros((n,n))
+
+    # Loop over all (p,q)-pairs
+    for i in range(n):
+        for j in range(n):
+            # Compute and store KL
+            kl[i,j] = kl_divergence(env, pv[i,j], qv[i,j])
+
+    # Create and save plot
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    surf = ax.plot_surface(pv, qv, kl, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    axins = inset_axes(ax,
+                    width="5%",  
+                    height="80%",
+                    loc='center right',
+                    borderpad=-5
+                   )
+    fig.colorbar(surf, cax=axins, shrink=0.5, aspect=5)
+    ax.set_xlabel("Evaluation Policy (p)")
+    ax.set_ylabel("Behavior Policy (q)")
+    ax.set_zlabel("KL Divergence")
+    plt.savefig('KL_bounds_graph_plot.png')
+    
+    # Return maximum KL
+    max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])
+    return max_kl
 
 # TEST
 # Init environment
 env = Graph(make_pomdp=False,
             number_of_pomdp_states=2,
-            transitions_deterministic=True,
+            transitions_deterministic=False,
             max_length=3,
             sparse_rewards=False,
             stochastic_rewards=False)
 
 # Init params
-kl_target = 0
-q = 1
-p_guess = 0
+kl_target = 0.01
+q = 0.2
+p_guess = 1
 
 # Run final method
-p = get_evaluation_policy(kl_target, q, p_guess)
+p = get_evaluation_policy(env, kl_target, q, p_guess)
 print(round(p,3))
 
-# Run state-visitation
-print('P_pi for p=1:')
-print(p_pi(env, 1))
-print('\n')
-
-print('d_pi for p=1:')
-print(d_pi(env, 1))
-print('\n')
-
-print('P_pi for p=0:')
-print(p_pi(env, 0))
-print('\n')
-
-print('d_pi for p=0:')
-print(d_pi(env, 0))
-print('\n')
+print(get_kl_max(0.2, 50))
