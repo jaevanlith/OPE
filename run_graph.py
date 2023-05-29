@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 from matplotlib import pyplot as plt
 from datetime import date
+from KL_divergence import get_evaluation_policy, get_kl_max
 
 from ope.envs.graph import Graph
 from ope.models.basics import BasicPolicy
@@ -9,10 +10,10 @@ from ope.experiment_tools.experiment import ExperimentRunner, analysis
 from ope.experiment_tools.config import Config
 from ope.utils import make_seed
 from neurips_seeds import weighted_graph_args, unweighted_graph_args
-from neurips_plotting import neurips_plot
+from neurips_plotting import neurips_plot, neurips_plot_kl_2D
+import json
 
-
-def run(experiment_args):
+def run(experiment_args, kl_target):
 
     runner = ExperimentRunner()
 
@@ -30,6 +31,7 @@ def run(experiment_args):
         max_Nval = max(experiment_args["Nvals"])
         all_N_vals += experiment_args["Nvals"]
 
+        
         # basic configuration with varying number of trajectories
         configuration = {
             "gamma": experiment_args["gamma"],
@@ -56,6 +58,7 @@ def run(experiment_args):
         # store them
         cfg = Config(configuration)
 
+
         # initialize environment with this configuration
         env = Graph(make_pomdp=cfg.is_pomdp,
                     number_of_pomdp_states=cfg.pomdp_horizon,
@@ -72,6 +75,9 @@ def run(experiment_args):
 
         # absorbing state for padding if episode ends before horizon is reached
         absorbing_state = processor(np.array([env.n_dim - 1]))
+
+        # Calculated evaluation policy for the given kl_divergence
+        cfg.eval_policy = get_evaluation_policy(env, kl_target, cfg.base_policy, 0)
 
         # Setup policies
         actions = [0, 1]
@@ -104,10 +110,54 @@ def run(experiment_args):
 
 if __name__ == '__main__':
     # Run trials.
-    unweighted_graph_results = run(unweighted_graph_args)
-    weighted_graph_results = run(weighted_graph_args)
+    behavior_policies = [0.1]
+    max_kl_divergence = get_kl_max(behavior_policies[0], 50)
+    kl_divergence = np.linspace(0, max_kl_divergence, 10)
+    weighted_results = []
+    unweighted_results = []
+    # Uses KL divergence to calculate the evaluation policy
+    for i in behavior_policies:
+        for k in kl_divergence:
+            # Set the behaviour policy
 
-    # Plot
-    neurips_plot(unweighted_graph_results, "unweighted_graph_plot", cycler_small=True)
-    neurips_plot(weighted_graph_results, "weighted_graph_plot", cycler_small=True)
+            unweighted_graph_args["p0"] = i
+            weighted_graph_args["p0"] = i
+            # Change Nvalues to only one measure
+            unweighted_graph_args["Nvals"] = [1024]
+            weighted_graph_args["Nvals"] = [1024]
+
+            unweighted_graph_results = run(unweighted_graph_args,k)
+            weighted_graph_results = run(weighted_graph_args, k)
+
+            # Save results
+            weighted_results.append({"behavior_policy":  i,
+                            "kl_divergence": k,
+                            "results": weighted_graph_results
+                            })
+            
+            unweighted_results.append({"behavior_policy":  i,
+                            "kl_divergence": k,
+                            "results": unweighted_graph_results, 
+                            })
+            
+            # # Plot 
+            # neurips_plot(unweighted_graph_results, "unweighted_graph_plot_ep_" + str(i).replace(".", "") + "bp_"+ str(j).replace(".", ""), cycler_small=True)
+            # neurips_plot(weighted_graph_results, "weighted_graph_plot"+ str(i).replace(".", "") + "bp_"+ str(j).replace(".", ""), cycler_small=True)
+
+    # Save data in case of wrong plotting
+    with open("weighted_results.json", "w") as weighted:
+        json.dump(weighted_results, weighted)
+    weighted.close()
+
+    with open("unweighted_results.json", "w") as unweighted:
+        json.dump(unweighted_results, unweighted)
+    unweighted.close()
+
+
+    # plot total results
+    neurips_plot_kl_2D(weighted_results, "weighted_graph_plot_kl", cycler_small=True)
+    neurips_plot_kl_2D(unweighted_results, "unweighted_graph_plot_kl", cycler_small=True)
+
+
+
 
