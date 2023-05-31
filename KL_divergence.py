@@ -105,20 +105,20 @@ def get_kl_max(q_fixed, n):
             # Compute and store KL
             kl[i,j] = kl_divergence(env, pv[i,j], qv[i,j])
 
-    # Create and save plot
-    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    surf = ax.plot_surface(pv, qv, kl, cmap=cm.coolwarm, linewidth=0, antialiased=False)
-    axins = inset_axes(ax,
-                    width="5%",  
-                    height="80%",
-                    loc='center right',
-                    borderpad=-5
-                   )
-    fig.colorbar(surf, cax=axins, shrink=0.5, aspect=5)
-    ax.set_xlabel("Evaluation Policy (p)")
-    ax.set_ylabel("Behavior Policy (q)")
-    ax.set_zlabel("KL Divergence")
-    plt.savefig('KL_bounds_graph_plot.png')
+    # # Create and save plot
+    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    # surf = ax.plot_surface(pv, qv, kl, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    # axins = inset_axes(ax,
+    #                 width="5%",  
+    #                 height="80%",
+    #                 loc='center right',
+    #                 borderpad=-5
+    #                )
+    # fig.colorbar(surf, cax=axins, shrink=0.5, aspect=5)
+    # ax.set_xlabel("Evaluation Policy (p)")
+    # ax.set_ylabel("Behavior Policy (q)")
+    # ax.set_zlabel("KL Divergence")
+    # plt.savefig('KL_bounds_graph_plot.png')
     
     # Return maximum KL
     max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])

@@ -116,9 +116,12 @@ if __name__ == '__main__':
     weighted_results = []
     unweighted_results = []
     # Uses KL divergence to calculate the evaluation policy
+    count = 0
     for i in behavior_policies:
+        
         for k in kl_divergence:
             # Set the behaviour policy
+            print('"Running ", k = ', k, " of ", kl_divergence)
 
             unweighted_graph_args["p0"] = i
             weighted_graph_args["p0"] = i
@@ -142,7 +145,7 @@ if __name__ == '__main__':
             
             # # Plot 
             # neurips_plot(unweighted_graph_results, "unweighted_graph_plot_ep_" + str(i).replace(".", "") + "bp_"+ str(j).replace(".", ""), cycler_small=True)
-            # neurips_plot(weighted_graph_results, "weighted_graph_plot"+ str(i).replace(".", "") + "bp_"+ str(j).replace(".", ""), cycler_small=True)
+            # neurips_plot(weighted_graph_results,5 "weighted_graph_plot"+ str(i).replace(".", "") + "bp_"+ str(j).replace(".", ""), cycler_small=True)
 
     # Save data in case of wrong plotting
     with open("weighted_results.json", "w") as weighted:

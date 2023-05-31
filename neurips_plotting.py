@@ -1,7 +1,7 @@
 import numpy as np
 from itertools import cycle
 from matplotlib import pyplot as plt
-
+import json
 
 def extract_nstep(results_dict, args, weighted=True):
     output = []
@@ -128,23 +128,34 @@ def format_results_kl_2d(raw_results, weighted=True):
     my_mse          = []
     seeds           = []
 
-    if len(R[0]['nvals']) == 1: 
+    for i in range(len(r['nvals'])):
+        esm = []
+        ess = []
+        erm = []
+        ers = []
+        esv = []
+        mmse = []
+        seed = []
         for [k,r] in zip(kl_divergence, R):
-            estimate_means.append(r['ests_mn'][0])
-            estimate_ses.append(r['ests_se'][0])
-            error_means.append(r['errs_mn'][0])
-            error_ses.append(r['errs_se'][0])
-            estimate_vars.append(r['ests_var'][0])
-            my_mse.append(r['my_mse'][0])
-            seeds.append(r['seeds'][0])
-
-    else:
-        raise ValueError("Multiple Nvals not implemented yet.")
+            esm.append(r['ests_mn'][i])
+            ess.append(r['ests_se'][i]) 
+            erm.append(r['errs_mn'][i])
+            ers.append(r['errs_se'][i])
+            esv.append(r['ests_var'][i])
+            mmse.append(r['my_mse'][i])
+            seed.append(r['seeds'][i])
+        estimate_means.append(esm.flatten())
+        estimate_ses.append(ess.flatten())
+        error_means.append(erm.flatten())
+        error_ses.append(ers.flatten())
+        estimate_vars.append(esv.flatten())
+        my_mse.append(mmse.flatten())
+        seeds.append(seed.flatten())
     
     return {
         'seeds'   : np.unique(seeds),
         'kl_div': np.array(kl_divergence),
-        'nvals'   : R[0]['nvals'],
+        'nvals'   : list(R[0]['nvals']),
         'true_val': R[0]['true_val'],
         'ests_mn' : np.array(estimate_means),
         'ests_se' : np.array(estimate_ses),
@@ -153,11 +164,12 @@ def format_results_kl_2d(raw_results, weighted=True):
         "ests_var": np.array(estimate_vars),
         'my_mse'  : np.array(my_mse)}
 
-def neurips_plot_kl_2D(kl_divergence, raw_results, filename, cycler_small=False):
+def neurips_plot_kl_2D(raw_results, filename, cycler_small=False):
     fig, axes = plt.subplots(1, 3, figsize=(15, 3))
     fig.tight_layout(rect=[0, 0.03, 0.8, 0.95])
 
     clean_results = format_results_kl_2d(raw_results)
+
     linecycler, markercycler, colorcycler = get_cyclers(small=cycler_small)
 
     horizon = raw_results[0]['results'][1]['args']['horizon']
@@ -171,14 +183,14 @@ def neurips_plot_kl_2D(kl_divergence, raw_results, filename, cycler_small=False)
         marker = next(markercycler)
         
         # MSE
-        axes[0].plot(np.arange(0, horizon, nstep_int), errs, color=color, linestyle=linestyle, label=nval, marker=marker)
+        axes[0].plot(np.arange(0, horizon, nstep_int), errs, color=color, linestyle=linestyle, label=kl_div, marker=marker)
         axes[0].fill_between(np.arange(0, horizon, nstep_int), errs-1.96*errs_se, errs+1.96*errs_se, alpha=0.25)
         axes[0].set_yscale('log')
         axes[0].set_xlabel("n-step value")
         axes[0].set_title("MSE")
         
         # Bias squared
-        axes[1].plot(np.arange(0, horizon, nstep_int), abs(ests - R["true_val"])**2, color=color, linestyle=linestyle, marker=marker)
+        axes[1].plot(np.arange(0, horizon, nstep_int), abs(ests - clean_results["true_val"])**2, color=color, linestyle=linestyle, marker=marker)
         axes[1].set_xlabel("n-step value")
         axes[1].set_title("Bias Squared Estimate")
         axes[1].set_yscale('log')
