@@ -91,7 +91,7 @@ def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
     return p[0]
 
 # Get max KL value
-def get_kl_max(q_fixed, n):
+def get_kl_max(env: Graph, q_fixed, n):
     # Init all the possible values for p
     p = np.linspace(0, 1, n)
     q = np.linspace(0, 1, n)
@@ -119,6 +119,25 @@ def get_kl_max(q_fixed, n):
     # ax.set_ylabel("Behavior Policy (q)")
     # ax.set_zlabel("KL Divergence")
     # plt.savefig('KL_bounds_graph_plot.png')
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
+
+    # Set different viewing angles for each subplot
+    viewing_angles = [(30, 45), (60, 120), (90, 180)]
+
+    for i, ax in enumerate(axes):
+            ax.plot_surface(pv,qv ,kl , cmap='viridis')
+            ax.view_init(elev=viewing_angles[i][0], azim=viewing_angles[i][1])
+            ax.set_xlabel('p')
+            ax.set_ylabel('q')
+            ax.set_zlabel('KL Divergence')
+            ax.set_title('Graph {}'.format(i+1))
+
+    # Adjust spacing between subplots
+    plt.tight_layout()
+
+    # Show the plot
+    plt.show()
+    fig.savefig("KL_bounds_graph_plot.png")
     
     # Return maximum KL
     max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])
@@ -142,4 +161,4 @@ p_guess = 1
 p = get_evaluation_policy(env, kl_target, q, p_guess)
 print(round(p,3))
 
-print(get_kl_max(0.2, 50))
+print(get_kl_max(env, 0.2, 50))
