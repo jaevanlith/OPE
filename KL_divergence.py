@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import LinearLocator
+from mpl_toolkits.mplot3d import Axes3D
 
 
 # Construct matrix P
@@ -106,31 +107,18 @@ def get_kl_max(env: Graph, q_fixed, n):
             kl[i,j] = kl_divergence(env, pv[i,j], qv[i,j])
 
     # # Create and save plot
-    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # surf = ax.plot_surface(pv, qv, kl, cmap=cm.coolwarm, linewidth=0, antialiased=False)
-    # axins = inset_axes(ax,
-    #                 width="5%",  
-    #                 height="80%",
-    #                 loc='center right',
-    #                 borderpad=-5
-    #                )
-    # fig.colorbar(surf, cax=axins, shrink=0.5, aspect=5)
-    # ax.set_xlabel("Evaluation Policy (p)")
-    # ax.set_ylabel("Behavior Policy (q)")
-    # ax.set_zlabel("KL Divergence")
-    # plt.savefig('KL_bounds_graph_plot.png')
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
+    fig, ax = plt.subplots( figsize=(10, 10), subplot_kw={'projection': '3d'})
 
     # Set different viewing angles for each subplot
     viewing_angles = [(30, 45), (60, 120), (90, 180)]
 
-    for i, ax in enumerate(axes):
-            ax.plot_surface(pv,qv ,kl , cmap='viridis')
-            ax.view_init(elev=viewing_angles[i][0], azim=viewing_angles[i][1])
-            ax.set_xlabel('p')
-            ax.set_ylabel('q')
-            ax.set_zlabel('KL Divergence')
-            ax.set_title('Graph {}'.format(i+1))
+    # for i, ax in enumerate(axes):
+    ax.plot_surface(pv,qv ,kl , cmap='viridis')
+    ax.view_init(elev=viewing_angles[0][0], azim=viewing_angles[0][1])
+    ax.set_xlabel('p', fontsize=17)
+    ax.set_ylabel('q', fontsize=17)
+    ax.set_zlabel('KL Divergence', fontsize=17)
+    # ax.set_title('KL Divergence for different values of p and q')
 
     # Adjust spacing between subplots
     plt.tight_layout()
@@ -142,23 +130,3 @@ def get_kl_max(env: Graph, q_fixed, n):
     # Return maximum KL
     max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])
     return max_kl
-
-# TEST
-# Init environment
-env = Graph(make_pomdp=False,
-            number_of_pomdp_states=2,
-            transitions_deterministic=False,
-            max_length=3,
-            sparse_rewards=False,
-            stochastic_rewards=False)
-
-# Init params
-kl_target = 0.01
-q = 0.2
-p_guess = 1
-
-# Run final method
-p = get_evaluation_policy(env, kl_target, q, p_guess)
-print(round(p,3))
-
-print(get_kl_max(env, 0.2, 50))
