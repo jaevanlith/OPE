@@ -1,7 +1,7 @@
 import numpy as np
 from itertools import cycle
 from matplotlib import pyplot as plt
-
+import json
 
 def extract_nstep(results_dict, args, weighted=True):
     output = []
@@ -111,6 +111,105 @@ def neurips_plot(raw_results, filename, cycler_small=False):
     fig.legend(title="# of Trajectories", loc="center right", bbox_to_anchor=(0.88, 0.6))
     fig.savefig(filename)
 
+
+def format_results_kl_2d(raw_results, weighted=True):
+    R = []
+    kl_divergence = []
+    for r in raw_results:
+        kl_divergence.append(r["kl_divergence"])
+        R.append(format_results(r["results"], weighted))
+
+    estimate_means  = []
+    estimate_ses    = []
+    error_means     = []
+    error_ses       = []
+    estimate_vars   = []
+    my_mse          = []
+    seeds           = []
+
+    for i in range(len(R[0]['nvals'])):
+        esm = []
+        ess = []
+        erm = []
+        ers = []
+        esv = []
+        mmse = []
+        seed = []
+        for [k,r] in zip(kl_divergence, R):
+            esm.append(r['ests_mn'][i])
+            ess.append(r['ests_se'][i]) 
+            erm.append(r['errs_mn'][i])
+            ers.append(r['errs_se'][i])
+            esv.append(r['ests_var'][i])
+            mmse.append(r['my_mse'][i])
+            seed.append(r['seeds'][i])
+        estimate_means.append(np.array(esm).flatten())
+        estimate_ses.append(np.array(ess).flatten())
+        error_means.append(np.array(erm).flatten())
+        error_ses.append(np.array(ers).flatten())
+        estimate_vars.append(np.array(esv).flatten())
+        my_mse.append(np.array(mmse).flatten())
+        seeds.append(np.array(seed).flatten())
+    
+    return {
+        'seeds'   : np.unique(seeds),
+        'kl_div': np.array(kl_divergence),
+        'nvals'   : list(R[0]['nvals']),
+        'true_val': R[0]['true_val'],
+        'ests_mn' : np.array(estimate_means),
+        'ests_se' : np.array(estimate_ses),
+        'errs_mn' : np.array(error_means),
+        'errs_se' : np.array(error_ses),
+        "ests_var": np.array(estimate_vars),
+        'my_mse'  : np.array(my_mse)}
+
+def neurips_plot_kl_3D(raw_results, filename, weighted, cycler_small=False):
+
+    clean_results = format_results_kl_2d(raw_results)
+    linecycler, markercycler, colorcycler = get_cyclers(small=cycler_small)
+
+    horizon = raw_results[0]['results'][1]['args']['horizon']
+    nstep_int = raw_results[0]['results'][1]['args'].get('nstep_int', 1)
+
+    for (errs, errs_se, kl_div, ests, ests_var, nval) in zip( clean_results['errs_mn'], clean_results['errs_se'], clean_results['kl_div'], clean_results['ests_mn'], clean_results['ests_var'], clean_results['nvals']):
+        color = next(colorcycler)
+        linestyle = next(linecycler)
+        marker = next(markercycler)
+
+        # Generate sample data
+        n_step_int = np.arange(0, horizon, nstep_int)
+        kl_div =  clean_results['kl_div']
+        z_axis = [errs,abs(ests - clean_results["true_val"])**2, ests_var]
+        z_names = ["MSE", "Bias Squared Estimate", "Variance Estimate"]
+        # Create a grid of coordinates
+        X, Y = np.meshgrid(n_step_int, kl_div)
+
+        # Reshape the kl_div data to match the grid shape
+        Z = [i.reshape(X.shape) for i in z_axis]
+        print(Z[0].shape)
+        # Create three subplots
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
+
+        # Set different viewing angles for each subplot
+        viewing_angles = [(30, 45), (60, 120), (90, 180)]
+
+        for i, ax in enumerate(axes):
+            ax.plot_surface(X,Y , Z[i], cmap='viridis')
+            ax.view_init(elev=viewing_angles[0][0], azim=viewing_angles[0][1])
+            ax.set_xlabel('n_step_int')
+            ax.set_ylabel('KL divergence')
+            ax.set_zscale('log')
+            ax.set_zlabel(z_names[i])
+            ax.set_title('Graph {}'.format(z_names[i]))
+
+        # Adjust spacing between subplots
+        plt.tight_layout()
+
+        # Show the plot
+        plt.show()
+        fig.savefig(filename + "_nval_" + str(nval).replace(".", ""))
+
+    
 
 
 
