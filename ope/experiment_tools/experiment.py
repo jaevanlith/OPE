@@ -148,6 +148,8 @@ class ExperimentRunner(object):
                 models = ['MFree_Retrace_L', 'MFree_MRDR', 'MFree_IH', 'MFree_FQE', 'MBased_MLE', 'MFree_Reg', 'IS', 'MFree_NStep']
             elif models == 'n-step':
                 models = ['MFree_NStep', 'MFree_IH', 'IS']
+            elif models == 'SOPE':
+                models = ['MFree_NStep']
             else:
               raise ValueError("Please give valid value of models")
 
@@ -296,6 +298,8 @@ class ExperimentRunner(object):
                 models = ['MFree_Retrace_L', 'MFree_MRDR', 'MFree_IH', 'MFree_FQE', 'MBased_MLE', 'MFree_Reg', 'IS', 'MFree_NStep']
             elif models == 'n-step':
                 models = ['MFree_NStep', 'IS']
+            elif models == 'SOPE':
+                models = ['MFree_NStep']
             else:
               raise ValueError("Please give valid value of models")
 
