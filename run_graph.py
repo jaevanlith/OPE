@@ -112,7 +112,7 @@ if __name__ == '__main__':
     # Run trials.
     behavior_policies = [0.1]
     max_kl_divergence = get_kl_max(behavior_policies[0], 50)
-    kl_divergence = np.linspace(0, max_kl_divergence, 10)
+    kl_divergence = 0.4 #np.linspace(0, max_kl_divergence, 10)
     weighted_results = []
     unweighted_results = []
     # Uses KL divergence to calculate the evaluation policy
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         
         for k in kl_divergence:
             # Set the behaviour policy
-            print('"Running ", k = ', k, " of ", kl_divergence)
+            print("Running ", k, " of ", kl_divergence)
 
             unweighted_graph_args["p0"] = i
             weighted_graph_args["p0"] = i
