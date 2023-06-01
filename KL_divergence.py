@@ -6,6 +6,7 @@ from matplotlib import cm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import Axes3D
+import os
 
 
 # Construct matrix P
@@ -92,7 +93,7 @@ def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
     return p[0]
 
 # Get max KL value
-def get_kl_max(env: Graph, q_fixed, n):
+def get_kl_max(env: Graph, q_fixed, n, path):
     # Init all the possible values for p
     p = np.linspace(0, 1, n)
     q = np.linspace(0, 1, n)
@@ -123,9 +124,13 @@ def get_kl_max(env: Graph, q_fixed, n):
     # Adjust spacing between subplots
     plt.tight_layout()
 
-    # Show the plot
-    plt.show()
-    fig.savefig("KL_bounds_graph_plot.png")
+    # Check if the directory exists
+    if not os.path.exists(path):
+        # If it doesn't exist, create it
+        os.makedirs(path)
+
+    # Save the plot
+    fig.savefig(path + "KL_bounds_graph_plot.png")
     
     # Return maximum KL
     max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])

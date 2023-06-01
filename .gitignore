@@ -8,3 +8,5 @@ tf_vae/
 experiments/
 models/WorldModels/
 *.pyc
+experiment_images/
+experiment_results/

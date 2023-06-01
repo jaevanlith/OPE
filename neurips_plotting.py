@@ -3,9 +3,12 @@ from itertools import cycle
 from matplotlib import pyplot as plt
 import json
 
-def extract_nstep(results_dict, args, weighted=True):
+def extract_nstep(results_dict, args, weighted=True, fixed_n_value=None):
     output = []
-    if 'nstep_int' in args.keys():
+    if fixed_n_value is not None:
+        key = 'NStep(t=%d)' % fixed_n_value if weighted else 'NStepNoW(t=%d)' % fixed_n_value
+        output.append(results_dict[key])
+    elif 'nstep_int' in args.keys():
         for i in range(0, args['horizon'], args['nstep_int']):
             key = 'NStep(t=%d)' % i if weighted else 'NStepNoW(t=%d)' % i
             output.append(results_dict[key])
@@ -17,11 +20,11 @@ def extract_nstep(results_dict, args, weighted=True):
     return np.array(output)
 
 
-def format_results(raw_results, weighted=True):
+def format_results(raw_results, weighted=True, fixed_n_value=None):
     Ns    = np.array([raw_results[1]['args']['Nvals'] for _ in range(raw_results[1]['args']['num_trials'])]).flatten()
     seeds = np.array(raw_results[1]['seeds'])
     
-    results = [ extract_nstep(res, raw_results[1]['args'], weighted) for res in raw_results[0] ]
+    results = [ extract_nstep(res, raw_results[1]['args'], weighted, fixed_n_value=fixed_n_value) for res in raw_results[0] ]
     true_val = raw_results[0][0]["ON POLICY"][0]
 
     nvals = np.unique(Ns) # sorted via default behavior of np.unique
@@ -112,12 +115,12 @@ def neurips_plot(raw_results, filename, cycler_small=False):
     fig.savefig(filename)
 
 
-def format_results_kl_2d(raw_results, weighted=True):
+def format_results_kl_2d(raw_results, weighted=True, fixed_n_value=None):
     R = []
     kl_divergence = []
     for r in raw_results:
         kl_divergence.append(r["kl_divergence"])
-        R.append(format_results(r["results"], weighted))
+        R.append(format_results(r["results"], weighted, fixed_n_value=fixed_n_value))
 
     estimate_means  = []
     estimate_ses    = []
@@ -163,15 +166,12 @@ def format_results_kl_2d(raw_results, weighted=True):
         "ests_var": np.array(estimate_vars),
         'my_mse'  : np.array(my_mse)}
 
-def neurips_plot_kl_2D(raw_results, filename, weighted, cycler_small=False):
+def neurips_plot_kl_2D(raw_results, filename, weighted, cycler_small=False, fixed_n_value=None):
     fig, axes = plt.subplots(1, 3, figsize=(15, 3))
     fig.tight_layout(rect=[0, 0.03, 0.8, 0.95])
 
-    clean_results = format_results_kl_2d(raw_results)
+    clean_results = format_results_kl_2d(raw_results, fixed_n_value=fixed_n_value)
     linecycler, markercycler, colorcycler = get_cyclers(small=cycler_small)
-
-    horizon = raw_results[1]['args']['horizon']
-    nstep_int = raw_results[1]['args'].get('nstep_int', 1)
 
     for (errs, errs_se, nval, ests, ests_var) in zip(clean_results['errs_mn'], clean_results['errs_se'], clean_results['nvals'], clean_results['ests_mn'], clean_results['ests_var']):
 
@@ -245,7 +245,6 @@ def neurips_plot_kl_3D(raw_results, filename, weighted, cycler_small=False):
         plt.tight_layout()
 
         # Show the plot
-        plt.show()
         fig.savefig(filename + "_nval_" + str(nval).replace(".", ""))
 
     

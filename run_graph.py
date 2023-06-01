@@ -13,6 +13,7 @@ from neurips_seeds import weighted_graph_args, unweighted_graph_args
 from neurips_plotting import neurips_plot, neurips_plot_kl_3D, neurips_plot_kl_2D
 import json
 import argparse
+import os
 
 def get_configuration(experiment_args, seed):
     # basic configuration with varying number of trajectories
@@ -128,7 +129,7 @@ def run_kl_experiment(experiment_args):
                     stochastic_rewards=cfg.stochastic_rewards)
         
         # Get bounds of KL divergence
-        max_kl_divergence = get_kl_max(env, pi_b, 50)
+        max_kl_divergence = get_kl_max(env, pi_b, 50, path=experiment_args["image_path"])
         kl_divergence = np.linspace(0, max_kl_divergence, 10)
 
         # Init results
@@ -178,7 +179,10 @@ def customize_args(experiment_args, cmd_args):
 
     # Set behavior policies
     experiment_args["behavior_policies"] = [float(pi_b) for pi_b in cmd_args["behavior_policies"].split(",")]
-    print("Behavior policies: ", experiment_args["behavior_policies"])
+
+    # Set image path
+    experiment_args["image_path"] = cmd_args["image_path"]
+
     return experiment_args
 
 
@@ -194,6 +198,10 @@ def save_results(unweighted_results, weighted_results, path):
             return int(obj)
         raise TypeError('Not serializable ', obj)
 
+    # Check if the directory exists
+    if not os.path.exists(path):
+        # If it doesn't exist, create it
+        os.makedirs(path)
 
     with open(path + "weighted_results.json", "w") as weighted:
             json.dump(weighted_results, weighted, indent = 4, default=default)
@@ -202,6 +210,43 @@ def save_results(unweighted_results, weighted_results, path):
     with open(path + "unweighted_results.json", "w") as unweighted:
             json.dump(unweighted_results, unweighted, indent=4, default=default)
     unweighted.close()
+
+def plot_results(cmd_args, fixed_n_value=None):
+    path = cmd_args['image_path']
+
+    if not os.path.exists(path + "weighted/"):
+        os.makedirs(path + "weighted/")
+
+    if not os.path.exists(path + "unweighted/"):
+        os.makedirs(path + "unweighted/")
+
+    # When results are for all n, make 3D plot
+    if fixed_n_value is None:
+        for i in weighted_graph_results:
+            neurips_plot_kl_3D(raw_results=i, 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
+                               weighted=True,  
+                               cycler_small=True)
+        for j in unweighted_graph_results:    
+            neurips_plot_kl_3D(raw_results=j,
+                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
+                               weighted=False, 
+                               cycler_small=True)
+            
+    # If n was fixed, make 2D plot
+    else:
+        for i in weighted_graph_results:
+            neurips_plot_kl_2D(raw_results=i, 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               weighted=True,  
+                               cycler_small=True, 
+                               fixed_n_value=fixed_n_value)
+        for j in unweighted_graph_results:
+            neurips_plot_kl_2D(raw_results=j,
+                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               weighted=False, 
+                               cycler_small=True, 
+                               fixed_n_value=fixed_n_value)
 
 
 if __name__ == '__main__':
@@ -238,19 +283,12 @@ if __name__ == '__main__':
         # Save results
         save_results(unweighted_graph_results, weighted_graph_results, cmd_args["save_path"])
     else:
+        # Load data when already there
         unweighted_graph_results = json.load(open(cmd_args["load_data_path"] + "unweighted_results.json"))
         weighted_graph_results = json.load(open(cmd_args["load_data_path"] + "weighted_results.json"))
 
-    # TODO: PLOT RESULTS
-    if cmd_args["fix_n_value"] is None:
-        for i in weighted_graph_results:
-            neurips_plot_kl_3D(raw_results=i, filename=cmd_args['image_path'] +"weighted_graph_plot_kl_bp_" + str(i[0]["behavior_policy"]).replace(".", "") + "_3D", weighted=True,  cycler_small=True)
-        for j in unweighted_graph_results:    
-            neurips_plot_kl_3D(raw_results=j,filename= cmd_args['image_path'] + "unweighted_graph_plot_kl_bp_" + str(j[0]["behavior_policy"]).replace(".", "") + "_3D", weighted=False, cycler_small=True)
-    else:
-        for i in weighted_graph_results:
-            neurips_plot_kl_2D(raw_results=i, filename=cmd_args['image_path'] +"weighted_graph_plot_kl_bp_" + str(i[0]["behavior_policy"]).replace(".", "") + "_n_step_"+ str(cmd_args['fix_n_value']) +"_2D", weighted=True,  cycler_small=True)
-        for j in unweighted_graph_results:
-            neurips_plot_kl_2D(raw_results=j,filename= cmd_args['image_path'] + "unweighted_graph_plot_kl_bp_" + str(j[0]["behavior_policy"]).replace(".", "") + "_n_step_"+ str(cmd_args['fix_n_value']) +"_2D", weighted=False, cycler_small=True)
+    # Plot Results
+    plot_results(cmd_args, fixed_n_value=cmd_args["fix_n_value"])
+    
 
 
