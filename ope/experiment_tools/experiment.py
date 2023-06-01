@@ -58,16 +58,16 @@ def analysis(dic):
     sorted_keys = sorted_keys[np.argsort(sorted_keys[:,1].astype(float))]
 
     # sorted_keys = sorted_keys[sorted(sorted_ke)]
-    print ("Results:  \n")
+    # print ("Results:  \n")
     for key, value in dic.items():
         label = ' '*(longest-len(key)) + key
-        print("{}: {:10.4f}. Error: {:10.4f}".format(label, *value))
-    print('\n')
-    print ("Ordered Results:  \n")
+        # print("{}: {:10.4f}. Error: {:10.4f}".format(label, *value))
+    # print('\n')
+    # print ("Ordered Results:  \n")
     for key in sorted_keys[:,0]:
         value = dic[key]
         label = ' '*(longest-len(key)) + key
-        print("{}: {:10.4f}. Error: {:10.4f}".format(label, *value))
+        # print("{}: {:10.4f}. Error: {:10.4f}".format(label, *value))
 
     dic['KLDivergence'] = divergence
     return dic
@@ -148,12 +148,14 @@ class ExperimentRunner(object):
                 models = ['MFree_Retrace_L', 'MFree_MRDR', 'MFree_IH', 'MFree_FQE', 'MBased_MLE', 'MFree_Reg', 'IS', 'MFree_NStep']
             elif models == 'n-step':
                 models = ['MFree_NStep', 'MFree_IH', 'IS']
+            elif models == 'SOPE':
+                models = ['MFree_NStep']
             else:
               raise ValueError("Please give valid value of models")
 
         # Generate dataset for the largest data size.
         if all_eval_data is None:
-            all_eval_data = rollout(env, pi_e, processor, absorbing_state, N=max(10000, cfg.num_traj), T=T, frameskip=1, frameheight=1, path=None, filename='tmp',)
+            all_eval_data = rollout(env, pi_e, processor, absorbing_state, N=max(1, cfg.num_traj), T=T, frameskip=1, frameheight=1, path=None, filename='tmp',)
         all_behavior_data = rollout(env, pi_b, processor, absorbing_state, pi_e = pi_e, N=cfg.num_traj, T=T, frameskip=1, frameheight=1, path=None, filename='tmp',)
 
         if cfg.to_regress_pi_b:
@@ -296,6 +298,8 @@ class ExperimentRunner(object):
                 models = ['MFree_Retrace_L', 'MFree_MRDR', 'MFree_IH', 'MFree_FQE', 'MBased_MLE', 'MFree_Reg', 'IS', 'MFree_NStep']
             elif models == 'n-step':
                 models = ['MFree_NStep', 'IS']
+            elif models == 'SOPE':
+                models = ['MFree_NStep']
             else:
               raise ValueError("Please give valid value of models")
 
