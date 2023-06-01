@@ -155,7 +155,7 @@ class ExperimentRunner(object):
 
         # Generate dataset for the largest data size.
         if all_eval_data is None:
-            all_eval_data = rollout(env, pi_e, processor, absorbing_state, N=max(1, cfg.num_traj), T=T, frameskip=1, frameheight=1, path=None, filename='tmp',)
+            all_eval_data = rollout(env, pi_e, processor, absorbing_state, N=max(10000, cfg.num_traj), T=T, frameskip=1, frameheight=1, path=None, filename='tmp',)
         all_behavior_data = rollout(env, pi_b, processor, absorbing_state, pi_e = pi_e, N=cfg.num_traj, T=T, frameskip=1, frameheight=1, path=None, filename='tmp',)
 
         if cfg.to_regress_pi_b:
