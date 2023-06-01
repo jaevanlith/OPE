@@ -163,6 +163,45 @@ def format_results_kl_2d(raw_results, weighted=True):
         "ests_var": np.array(estimate_vars),
         'my_mse'  : np.array(my_mse)}
 
+def neurips_plot_kl_2D(raw_results, filename, weighted, cycler_small=False):
+    fig, axes = plt.subplots(1, 3, figsize=(15, 3))
+    fig.tight_layout(rect=[0, 0.03, 0.8, 0.95])
+
+    clean_results = format_results_kl_2d(raw_results)
+    linecycler, markercycler, colorcycler = get_cyclers(small=cycler_small)
+
+    horizon = raw_results[1]['args']['horizon']
+    nstep_int = raw_results[1]['args'].get('nstep_int', 1)
+
+    for (errs, errs_se, nval, ests, ests_var) in zip(clean_results['errs_mn'], clean_results['errs_se'], clean_results['nvals'], clean_results['ests_mn'], clean_results['ests_var']):
+
+        color = next(colorcycler)
+        linestyle = next(linecycler)
+        marker = next(markercycler)
+        
+        # MSE
+        axes[0].plot(clean_results['kl_div'], errs, color=color, linestyle=linestyle, label=nval, marker=marker)
+        axes[0].fill_between(clean_results['kl_div'], errs-1.96*errs_se, errs+1.96*errs_se, alpha=0.25)
+        axes[0].set_yscale('log')
+        axes[0].set_xlabel("KL Divergence")
+        axes[0].set_title("MSE")
+        
+        # Bias squared
+        axes[1].plot(clean_results['kl_div'], abs(ests - clean_results["true_val"])**2, color=color, linestyle=linestyle, marker=marker)
+        axes[1].set_xlabel("KL Divergence")
+        axes[1].set_title("Bias Squared Estimate")
+        axes[1].set_yscale('log')
+        
+        # Variance.
+        axes[2].plot(clean_results['kl_div'], ests_var, color=color, linestyle=linestyle, marker=marker)
+        axes[2].set_xlabel("KL Divergence")
+        axes[2].set_title("Variance Estimate")
+        axes[2].set_yscale('log')
+        
+    fig.legend(title="# of Trajectories", loc="center right", bbox_to_anchor=(0.88, 0.6))
+    fig.savefig(filename)
+
+
 def neurips_plot_kl_3D(raw_results, filename, weighted, cycler_small=False):
 
     clean_results = format_results_kl_2d(raw_results)
@@ -208,6 +247,8 @@ def neurips_plot_kl_3D(raw_results, filename, weighted, cycler_small=False):
         # Show the plot
         plt.show()
         fig.savefig(filename + "_nval_" + str(nval).replace(".", ""))
+
+    
 
     
 
