@@ -212,3 +212,41 @@ class Graph(object):
 		'''
 		y = signal.lfilter([1], [1, -discount], x=costs[::-1])
 		return y[::-1][0]
+	
+	def calculate_transition_matrix(self):
+		n_states = self.n_dim
+		n_actions = self.n_actions
+
+		P = np.zeros((n_states, n_actions, n_states))  # Initialize 3D matrix with zeros
+
+		for s in range(n_states):
+			for a in range(n_actions):
+				if s >= n_states - 3:  # If we're in one of the last two non-terminal states
+					P[s][a][n_states-1] = 1.0  # Transition to terminal state with probability 1
+				elif s == 0:
+					if a == 0:
+						P[s][a][min(s+1, n_states-1)] = 1-self.slippage
+						P[s][a][min(s+2, n_states-1)] = self.slippage
+					else:
+						P[s][a][min(s+2, n_states-1)] = 1-self.slippage
+						P[s][a][min(s+1, n_states-1)] = self.slippage
+				else:
+					if a == 0:
+						if s % 2 == 1:
+							P[s][a][min(s+2, n_states-1)] = 1-self.slippage
+							P[s][a][min(s+3, n_states-1)] = self.slippage
+						else:
+							P[s][a][min(s+1, n_states-1)] = 1-self.slippage
+							P[s][a][min(s+2, n_states-1)] = self.slippage
+					else:
+						if s % 2 == 1:
+							P[s][a][min(s+3, n_states-1)] = 1-self.slippage
+							P[s][a][min(s+2, n_states-1)] = self.slippage
+						else:
+							P[s][a][min(s+2, n_states-1)] = 1-self.slippage
+							P[s][a][min(s+1, n_states-1)] = self.slippage
+
+		P[n_states-1,:,:] = 0  # No transitions from terminal state
+		P[n_states-1,:,n_states-1] = 1  # Terminal state transitions to itself with probability 1
+		return P
+
