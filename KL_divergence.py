@@ -8,6 +8,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import Axes3D
 import os
+import tensorflow as tf
 
 # env = Graph(make_pomdp=False,
 #             number_of_pomdp_states=2,
@@ -114,11 +115,38 @@ def func(p, env: Graph, q, target_kl):
     # Subtract from wanted KL
     return target_kl - kl
 
-# Get policy corresponding to wanted KL divergence
-def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
-    # Solve to find the wanted p-value
-    p = fsolve(func, p_guess, (env, q, kl_target))
-    return p[0]
+# # Get policy corresponding to wanted KL divergence
+# def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
+#     # Solve to find the wanted p-value
+#     p = fsolve(func, p_guess, (env, q, kl_target))
+#     return p[0]
+
+def get_evaluation_policy(env: Graph, kl_target, p):
+
+    num_actions = env.n_dim
+    num_states = env.n_actions
+    
+    # Initialize q randomly
+    q = tf.Variable(tf.random.uniform([num_states, num_actions]), dtype=tf.float32)
+
+    # Define the loss function
+    def loss():
+        kl_divergence = tf.reduce_sum(p * tf.math.log(tf.maximum(p / q, 1e-12)))
+        return tf.abs(kl_divergence - kl_target)
+
+    # Define the optimizer
+    optimizer = tf.keras.optimizers.Adam()
+
+    # Perform optimization
+    for _ in range(1000):  # You can change the number of iterations
+        optimizer.minimize(loss, var_list=[q])
+
+    # Normalize q to be a valid probability distribution
+    q = q / tf.reduce_sum(q, axis=-1, keepdims=True)
+    q = tf.clip_by_value(q, clip_value_min=1e-3, clip_value_max=1.0)
+    q = q / tf.reduce_sum(q, axis=-1, keepdims=True)
+
+    return q.numpy()
 
 # Get max KL value
 def get_kl_max(env: Graph, q_fixed, n, path):
