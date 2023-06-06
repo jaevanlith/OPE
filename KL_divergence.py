@@ -15,7 +15,7 @@ import os
 env = Graph(make_pomdp=False,
             number_of_pomdp_states=2,
             transitions_deterministic=False,
-            max_length=3,
+            max_length=10,
             sparse_rewards=False,
             stochastic_rewards=False)
 
@@ -102,12 +102,12 @@ def kl_divergence(env: Graph, p, q, gamma=0.8):
     d_e += delta
     
     # Compute KL divergence
-    kl = np.sum(d_b * np.log(np.divide(d_b, d_e) + delta))
-    #kl = np.sum(np.where(d_b !=0, d_b*np.log(d_b/d_e), 0))
+    #kl = np.sum(d_b * np.log(np.divide(d_b, d_e) + delta))
+    kl = np.sum(np.where(d_b != 0, d_b * np.log((d_b) / (d_e)), 0))
 
     return kl
 
-print("printing kl divergence", kl_divergence(env, p = 0.1, q = 0.9097))
+print("printing kl divergence", kl_divergence(env, p = 0.1, q = 0.838 ))
 
 # Equation to solve
 def func(p, env: Graph, q, target_kl):
@@ -117,6 +117,16 @@ def func(p, env: Graph, q, target_kl):
     # Subtract from wanted KLpath="addyourpath"
     return target_kl - kl
 
+# from scipy.optimize import root_scalar
+# # Get policy corresponding to wanted KL divergence
+# def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
+#     # Solve to find the wanted p-value
+#     p = fsolve(func, p_guess, (env, q, kl_target))
+#     sol = root_scalar(func, args=(env, q, kl_target), method='ridder', bracket=[0, 1])
+#     return sol.root
+
+# print(get_evaluation_policy(env, kl_target = 0.2, q = 0.1, p_guess=0.5))
+
 def get_policy_with_target_kl(env, p, kl_target):
     # p is the behavior policy
 
@@ -125,7 +135,7 @@ def get_policy_with_target_kl(env, p, kl_target):
         return abs(kl_divergence(env, p, q) - kl_target)
     
     q_initial_guess = 0.5  # You may need to adjust this
-    result = sp.optimize.minimize(objective, q_initial_guess)
+    result = sp.optimize.minimize(objective, q_initial_guess, method='L-BFGS-B', bounds=[(0, 1)])
 
     if result.success:
         q = result.x[0]  # Take the first element because the result is a 1-element array
@@ -133,7 +143,7 @@ def get_policy_with_target_kl(env, p, kl_target):
     else:
         return print("Optimization failed.")
 
-print(get_policy_with_target_kl(env, p = 0.1, kl_target = 0.1))
+print("policy should be",get_policy_with_target_kl(env, p = 0.1, kl_target = 0.2))
 
 # Get max KL value
 def get_kl_max(env: Graph, q_fixed, n, path):
@@ -179,4 +189,4 @@ def get_kl_max(env: Graph, q_fixed, n, path):
     max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])
     return max_kl
 
-print(get_kl_max(env, q_fixed= 0.1, n = 50, path=""))
+#print(get_kl_max(env, q_fixed= 0.1, n = 50, path="/Documents/IDM_project"))
