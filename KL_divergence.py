@@ -127,7 +127,7 @@ def func(p, env: Graph, q, target_kl):
 
 # print(get_evaluation_policy(env, kl_target = 0.2, q = 0.1, p_guess=0.5))
 
-def get_policy_with_target_kl(env, p, kl_target):
+def get_evaluation_policy(env, p, kl_target):
     # p is the behavior policy
 
     def objective(q):
@@ -143,7 +143,7 @@ def get_policy_with_target_kl(env, p, kl_target):
     else:
         return print("Optimization failed.")
 
-print("policy should be",get_policy_with_target_kl(env, p = 0.1, kl_target = 0.2))
+print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
 
 # Get max KL value
 def get_kl_max(env: Graph, q_fixed, n, path):
