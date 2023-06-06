@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import fsolve
+import scipy as sp
 from ope.envs.graph import Graph
 from ope.envs.gridworld import Gridworld
 import matplotlib.pyplot as plt
@@ -8,14 +9,15 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import Axes3D
 import os
-import tensorflow as tf
 
-# env = Graph(make_pomdp=False,
-#             number_of_pomdp_states=2,
-#             transitions_deterministic=False,
-#             max_length=3,
-#             sparse_rewards=False,
-#             stochastic_rewards=False)
+
+
+env = Graph(make_pomdp=False,
+            number_of_pomdp_states=2,
+            transitions_deterministic=False,
+            max_length=3,
+            sparse_rewards=False,
+            stochastic_rewards=False)
 
 #print(env.calculate_transition_matrix().shape)
 
@@ -64,7 +66,7 @@ def d_pi(env: Graph, p, gamma=0.98):
     action_size = env.n_actions
 
     transition_matrix = env.calculate_transition_matrix()
-    print(transition_matrix)
+    #print(transition_matrix)
     policy = np.zeros((state_size, action_size))
     
     policy[:,0] = p
@@ -105,48 +107,33 @@ def kl_divergence(env: Graph, p, q, gamma=0.8):
 
     return kl
 
-#print("printing kl divergence", kl_divergence(env, p = 0.1, q = 0.9))
+print("printing kl divergence", kl_divergence(env, p = 0.1, q = 0.9097))
 
 # Equation to solve
 def func(p, env: Graph, q, target_kl):
     # Compute KL
     kl = kl_divergence(env, p, q)
 
-    # Subtract from wanted KL
+    # Subtract from wanted KLpath="addyourpath"
     return target_kl - kl
 
-# # Get policy corresponding to wanted KL divergence
-# def get_evaluation_policy(env: Graph, kl_target, q, p_guess):
-#     # Solve to find the wanted p-value
-#     p = fsolve(func, p_guess, (env, q, kl_target))
-#     return p[0]
+def get_policy_with_target_kl(env, p, kl_target):
+    # p is the behavior policy
 
-def get_evaluation_policy(env: Graph, kl_target, p):
-
-    num_actions = env.n_dim
-    num_states = env.n_actions
+    def objective(q):
+        # The objective function we want to minimize
+        return abs(kl_divergence(env, p, q) - kl_target)
     
-    # Initialize q randomly
-    q = tf.Variable(tf.random.uniform([num_states, num_actions]), dtype=tf.float32)
+    q_initial_guess = 0.5  # You may need to adjust this
+    result = sp.optimize.minimize(objective, q_initial_guess)
 
-    # Define the loss function
-    def loss():
-        kl_divergence = tf.reduce_sum(p * tf.math.log(tf.maximum(p / q, 1e-12)))
-        return tf.abs(kl_divergence - kl_target)
+    if result.success:
+        q = result.x[0]  # Take the first element because the result is a 1-element array
+        return q  # return policy
+    else:
+        return print("Optimization failed.")
 
-    # Define the optimizer
-    optimizer = tf.keras.optimizers.Adam()
-
-    # Perform optimization
-    for _ in range(1000):  # You can change the number of iterations
-        optimizer.minimize(loss, var_list=[q])
-
-    # Normalize q to be a valid probability distribution
-    q = q / tf.reduce_sum(q, axis=-1, keepdims=True)
-    q = tf.clip_by_value(q, clip_value_min=1e-3, clip_value_max=1.0)
-    q = q / tf.reduce_sum(q, axis=-1, keepdims=True)
-
-    return q.numpy()
+print(get_policy_with_target_kl(env, p = 0.1, kl_target = 0.1))
 
 # Get max KL value
 def get_kl_max(env: Graph, q_fixed, n, path):
@@ -192,4 +179,4 @@ def get_kl_max(env: Graph, q_fixed, n, path):
     max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])
     return max_kl
 
-#print(get_kl_max(env, q_fixed= 0.1, n = 50, path="addyourpath"))
+print(get_kl_max(env, q_fixed= 0.1, n = 50, path=""))
