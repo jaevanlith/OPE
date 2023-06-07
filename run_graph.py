@@ -110,7 +110,7 @@ def run(experiment_args, kl_target):
     # Run the configurations
     results = runner.run()
 
-    return results, {'seeds':seeds, 'args': experiment_args}
+    return results, {'seeds':seeds, 'args': experiment_args, 'eval_policy': cfg.eval_policy}
 
 
 def run_kl_experiment(experiment_args):
@@ -143,10 +143,11 @@ def run_kl_experiment(experiment_args):
             experiment_args["p0"] = pi_b
 
             # Run experiments
-            graph_results = run(experiment_args, kl)
+            graph_results, dic = run(experiment_args, kl)
 
             # Save results
             results.append({"behavior_policy":  pi_b,
+                            "eval_policy": dic["eval_policy"],
                             "kl_divergence": kl,
                             "results": graph_results
                             })
@@ -211,7 +212,7 @@ def save_results(unweighted_results, weighted_results, path):
             json.dump(unweighted_results, unweighted, indent=4, default=default)
     unweighted.close()
 
-def plot_results(cmd_args, fixed_n_value=10):
+def plot_results(cmd_args, fixed_n_value=None):
     path = cmd_args['image_path']
 
     if not os.path.exists(path + "weighted/"):
@@ -223,7 +224,7 @@ def plot_results(cmd_args, fixed_n_value=10):
     # When results are for all n, make 3D plot
     if fixed_n_value is None:
         for i in weighted_graph_results:
-
+            fixed_n_value = 10
             neurips_plot_kl_3D(raw_results=i, 
                                filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
                                weighted=True,  
@@ -280,24 +281,30 @@ if __name__ == '__main__':
     # Path to which new data is saved
     parser.add_argument('--save_path', type=str, default="./experiment_results/")
     # If data is already generated, load it instead of generating it
-    parser.add_argument('--load_data_path', type=str, default=None)
+    parser.add_argument('--load_data_path_weighted', type=str, default=None)
+    parser.add_argument('--load_data_path_unweighted', type=str, default=None)
     cmd_args = dict(vars(parser.parse_args()))
 
-    if cmd_args["load_data_path"] is None:
+    if cmd_args["load_data_path_weighted"] is None:
         # Customize experiment arguments
-        unweighted_graph_args = customize_args(unweighted_graph_args, cmd_args)
         weighted_graph_args = customize_args(weighted_graph_args, cmd_args)
-
         # Run trials
-        unweighted_graph_results = run_kl_experiment(unweighted_graph_args)
         weighted_graph_results = run_kl_experiment(weighted_graph_args)
-
-        # Save results
-        save_results(unweighted_graph_results, weighted_graph_results, cmd_args["save_path"])
     else:
         # Load data when already there
-        unweighted_graph_results = json.load(open(cmd_args["load_data_path"] + "unweighted_results.json"))
-        weighted_graph_results = json.load(open(cmd_args["load_data_path"] + "weighted_results.json"))
+        weighted_graph_results = json.load(open(cmd_args["load_data_path_weighted"]))
+
+    if cmd_args["load_data_path_unweighted"] is None:
+        # Customize experiment arguments
+        unweighted_graph_args = customize_args(unweighted_graph_args, cmd_args)
+        # Run trials
+        unweighted_graph_results = run_kl_experiment(unweighted_graph_args)
+    else:
+        # Load data when already there
+        unweighted_graph_results = json.load(open(cmd_args["load_data_path_unweighted"]))
+
+    # Save results
+    save_results(unweighted_graph_results, weighted_graph_results, cmd_args["save_path"])
 
     # Plot Results
     plot_results(cmd_args, fixed_n_value=cmd_args["fix_n_value"])
