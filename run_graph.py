@@ -203,15 +203,15 @@ def save_results(unweighted_results, weighted_results, path):
         # If it doesn't exist, create it
         os.makedirs(path)
 
-    with open(path + "weighted_results.json", "w") as weighted:
+    with open(path + "weighted_results" +cmd_args['behavior_policies'].replace(".", "").replace(",", "_") +".json", "w") as weighted:
             json.dump(weighted_results, weighted, indent = 4, default=default)
     weighted.close()
 
-    with open(path + "unweighted_results.json", "w") as unweighted:
+    with open(path + "unweighted_results"+ cmd_args['behavior_policies'].replace(".", "").replace(",", "_")  +".json", "w") as unweighted:
             json.dump(unweighted_results, unweighted, indent=4, default=default)
     unweighted.close()
 
-def plot_results(cmd_args, fixed_n_value=None):
+def plot_results(cmd_args, fixed_n_value=10):
     path = cmd_args['image_path']
 
     if not os.path.exists(path + "weighted/"):
@@ -223,15 +223,27 @@ def plot_results(cmd_args, fixed_n_value=None):
     # When results are for all n, make 3D plot
     if fixed_n_value is None:
         for i in weighted_graph_results:
+
             neurips_plot_kl_3D(raw_results=i, 
                                filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
                                weighted=True,  
                                cycler_small=True)
+            neurips_plot_kl_2D(raw_results=i, 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               weighted=True,  
+                               cycler_small=True, 
+                               fixed_n_value=fixed_n_value)
         for j in unweighted_graph_results:    
             neurips_plot_kl_3D(raw_results=j,
                                filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
                                weighted=False, 
                                cycler_small=True)
+            neurips_plot_kl_2D(raw_results=j,
+                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               weighted=False, 
+                               cycler_small=True, 
+                               fixed_n_value=fixed_n_value)
+
             
     # If n was fixed, make 2D plot
     else:
@@ -289,6 +301,7 @@ if __name__ == '__main__':
 
     # Plot Results
     plot_results(cmd_args, fixed_n_value=cmd_args["fix_n_value"])
+
     
 
 
