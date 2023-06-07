@@ -82,7 +82,7 @@ def run(experiment_args, kl_target):
         absorbing_state = processor(np.array([env.n_dim - 1]))
 
         # Calculated evaluation policy for the given kl_divergence
-        cfg.eval_policy = get_evaluation_policy(env, kl_target, cfg.base_policy, 0)
+        cfg.eval_policy = get_evaluation_policy(env, kl_target, cfg.base_policy)
 
         # Setup policies
         actions = [0, 1]
