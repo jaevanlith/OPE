@@ -12,12 +12,12 @@ import os
 
 
 
-env = Graph(make_pomdp=False,
-            number_of_pomdp_states=2,
-            transitions_deterministic=False,
-            max_length=10,
-            sparse_rewards=False,
-            stochastic_rewards=False)
+# env = Graph(make_pomdp=False,
+#             number_of_pomdp_states=2,
+#             transitions_deterministic=False,
+#             max_length=10,
+#             sparse_rewards=False,
+#             stochastic_rewards=False)
 
 #print(env.calculate_transition_matrix().shape)
 
@@ -59,7 +59,7 @@ env = Graph(make_pomdp=False,
 #     return P
 
 # Compute stationary state distribution
-def d_pi(env: Graph, p, gamma=0.98):
+def d_pi(env: Graph, p, gamma=0.8):
     # Construct matrix P
     #P = p_pi(env, p)
     state_size = env.n_dim
@@ -102,12 +102,12 @@ def kl_divergence(env: Graph, p, q, gamma=0.8):
     d_e += delta
     
     # Compute KL divergence
-    #kl = np.sum(d_b * np.log(np.divide(d_b, d_e) + delta))
-    kl = np.sum(np.where(d_b != 0, d_b * np.log((d_b) / (d_e)), 0))
+    kl = np.sum(d_b * np.log(np.divide(d_b, d_e) + delta))
+    #kl = np.sum(np.where(d_b != 0, d_b * np.log((d_b) / (d_e)), 0))
 
     return kl
 
-print("printing kl divergence", kl_divergence(env, p = 0.1, q = 0.838 ))
+#print("printing kl divergence", kl_divergence(env, p = 0.1, q = 0.838 ))
 
 # Equation to solve
 def func(p, env: Graph, q, target_kl):
@@ -143,7 +143,7 @@ def get_evaluation_policy(env, p, kl_target):
     else:
         return print("Optimization failed.")
 
-print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
+# print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
 
 # Get max KL value
 def get_kl_max(env: Graph, q_fixed, n, path):

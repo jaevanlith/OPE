@@ -144,14 +144,15 @@ def run_kl_experiment(experiment_args):
 
             # Run experiments
             graph_results, dic = run(experiment_args, kl)
-
+            print(graph_results)
             # Save results
             results.append({"behavior_policy":  pi_b,
                             "eval_policy": dic["eval_policy"],
                             "kl_divergence": kl,
                             "results": graph_results
                             })
-
+            print(results)
+        
         results_all_behaviors.append(results)
 
     return results_all_behaviors
