@@ -21,6 +21,7 @@ def extract_nstep(results_dict, args, weighted=True, fixed_n_value=None):
 
 
 def format_results(raw_results, weighted=True, fixed_n_value=None):
+    print(raw_results)
     Ns    = np.array([raw_results[1]['args']['Nvals'] for _ in range(raw_results[1]['args']['num_trials'])]).flatten()
     seeds = np.array(raw_results[1]['seeds'])
     
