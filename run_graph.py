@@ -82,8 +82,7 @@ def run(experiment_args, kl_target):
         absorbing_state = processor(np.array([env.n_dim - 1]))
 
         # Calculated evaluation policy for the given kl_divergence
-        cfg.eval_policy = get_evaluation_policy(env, kl_target, cfg.base_policy)
-
+        cfg.eval_policy = get_evaluation_policy(env, cfg.base_policy, kl_target)
         # Setup policies
         actions = [0, 1]
         pi_e = BasicPolicy(
@@ -143,15 +142,17 @@ def run_kl_experiment(experiment_args):
             experiment_args["p0"] = pi_b
 
             # Run experiments
-            graph_results, dic = run(experiment_args, kl)
-            print(graph_results)
-            # Save results
-            results.append({"behavior_policy":  pi_b,
-                            "eval_policy": dic["eval_policy"],
+            graph_results = run(experiment_args, kl)
+            print
+            dict_results = {"behavior_policy":  pi_b,
+                            "eval_policy": graph_results[1]['eval_policy'],
                             "kl_divergence": kl,
                             "results": graph_results
-                            })
-            print(results)
+                            }
+            print('behavior_policy: ' , dict_results["behavior_policy"] , ' calculated_eval_policy: ' , dict_results["eval_policy"] , ' kl_divergence: ' , dict_results["kl_divergence"])
+            # Save results
+            results.append(dict_results)
+            
         
         results_all_behaviors.append(results)
 
@@ -183,7 +184,7 @@ def customize_args(experiment_args, cmd_args):
 
     # Set behavior policies
     experiment_args["behavior_policies"] = [float(pi_b) for pi_b in cmd_args["behavior_policies"].split(",")]
-    print(experiment_args["behavior_policies"])
+    
     # Set image path
     experiment_args["image_path"] = cmd_args["image_path"]
 
@@ -232,7 +233,7 @@ def plot_results(results, weighted, cmd_args, fixed_n_value=None):
                                weighted=True,  
                                cycler_small=True)
                 neurips_plot_kl_2D(raw_results=i, 
-                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
                                weighted=True,  
                                cycler_small=True, 
                                fixed_n_value=fixed_n_value)
@@ -240,7 +241,7 @@ def plot_results(results, weighted, cmd_args, fixed_n_value=None):
         else:
             for i in weighted_graph_results:
                 neurips_plot_kl_2D(raw_results=i, 
-                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
                                weighted=True,  
                                cycler_small=True, 
                                fixed_n_value=fixed_n_value)
@@ -250,13 +251,14 @@ def plot_results(results, weighted, cmd_args, fixed_n_value=None):
             os.makedirs(path + "unweighted/")
 
         if fixed_n_value is None:
+            fixed_n_value = 10
             for j in results:    
                 neurips_plot_kl_3D(raw_results=j,
                                 filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
                                 weighted=False, 
                                 cycler_small=True)
                 neurips_plot_kl_2D(raw_results=j,
-                                filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                                filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
                                 weighted=False, 
                                 cycler_small=True, 
                                 fixed_n_value=fixed_n_value)
@@ -264,7 +266,7 @@ def plot_results(results, weighted, cmd_args, fixed_n_value=None):
         else:
             for j in unweighted_graph_results:
                 neurips_plot_kl_2D(raw_results=j,
-                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
                                weighted=False, 
                                cycler_small=True, 
                                fixed_n_value=fixed_n_value)
@@ -292,7 +294,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_path', type=str, default="./experiment_results/")
     # Runs experiments for weighted or unweighted estimator
     parser.add_argument('--weighted', type=bool, default=True)
-    parser.add_argument('--unweighted', type=bool, default=True)
+    parser.add_argument('--unweighted', type=bool, default=False)
     # If data is already generated, load it instead of generating it
     parser.add_argument('--load_data_path_weighted', type=str, default=None)
     parser.add_argument('--load_data_path_unweighted', type=str, default=None)
