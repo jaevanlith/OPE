@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 from matplotlib import pyplot as plt
 from datetime import date
-from KL_divergence import get_evaluation_policy, get_kl_max
+from KL_divergence import get_evaluation_policies, plot_kl_bounds
 
 from ope.envs.graph import Graph
 from ope.models.basics import BasicPolicy
@@ -45,7 +45,7 @@ def get_configuration(experiment_args, seed):
 
     return cfg
 
-def run(experiment_args, kl_target):
+def run(experiment_args, p):
 
     runner = ExperimentRunner()
 
@@ -81,8 +81,8 @@ def run(experiment_args, kl_target):
         # absorbing state for padding if episode ends before horizon is reached
         absorbing_state = processor(np.array([env.n_dim - 1]))
 
-        # Calculated evaluation policy for the given kl_divergence
-        cfg.eval_policy = get_evaluation_policy(env, cfg.base_policy, kl_target)
+        # Set evaluation policy for the given kl_divergence
+        cfg.eval_policy = p
         # Setup policies
         actions = [0, 1]
         pi_e = BasicPolicy(
@@ -116,8 +116,8 @@ def run_kl_experiment(experiment_args):
     results_all_behaviors = []
 
     # Run for all different behavior policies
-    for pi_b in experiment_args["behavior_policies"]:
-        print("Running behavior policy ", pi_b)
+    for q in experiment_args["behavior_policies"]:
+        print("Running behavior policy ", q)
         # Construct environment
         cfg = get_configuration(experiment_args, 0)
         env = Graph(make_pomdp=cfg.is_pomdp,
@@ -127,25 +127,30 @@ def run_kl_experiment(experiment_args):
                     sparse_rewards=cfg.sparse_rewards,
                     stochastic_rewards=cfg.stochastic_rewards)
         
-        # Get bounds of KL divergence
-        max_kl_divergence = get_kl_max(env, pi_b, 50, path=experiment_args["image_path"])
-        kl_divergence = np.linspace(0, max_kl_divergence, experiment_args['kl_divergence_steps'])
+        # Plot bounds of KL divergence
+        if not os.path.exists(experiment_args["image_path"] + "KL_bounds_graph_plot.png"):
+            plot_kl_bounds(env, 50, path=experiment_args["image_path"])
+
+        # Get evaluation policies corresponding KL's
+        eval_policies_with_kl = get_evaluation_policies(env, q, experiment_args['kl_divergence_steps'])
+        print("Evaluation policies with kl's: ")
+        print(eval_policies_with_kl)
 
         # Init results
         results = []
 
         # Run for all possible KL divergences
-        for kl in kl_divergence:
-            print("Running ", kl, " of ", kl_divergence)
+        for (p, kl) in eval_policies_with_kl:
+            print("Running policy: ", p, " with kl: ", kl)
 
             # Set the behavior policy
-            experiment_args["p0"] = pi_b
+            experiment_args["p0"] = q
 
             # Run experiments
-            graph_results = run(experiment_args, kl)
+            graph_results = run(experiment_args, p)
             print
-            dict_results = {"behavior_policy":  pi_b,
-                            "eval_policy": graph_results[1]['eval_policy'],
+            dict_results = {"behavior_policy":  q,
+                            "eval_policy": p,
                             "kl_divergence": kl,
                             "results": graph_results
                             }

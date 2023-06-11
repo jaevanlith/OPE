@@ -127,27 +127,77 @@ def func(p, env: Graph, q, target_kl):
 
 # print(get_evaluation_policy(env, kl_target = 0.2, q = 0.1, p_guess=0.5))
 
-def get_evaluation_policy(env, p, kl_target):
-    # p is the behavior policy
+# def get_evaluation_policy(env, p, kl_target):
+#     # p is the behavior policy
 
-    def objective(q):
-        # The objective function we want to minimize
-        return abs(kl_divergence(env, p, q) - kl_target)
+#     def objective(q):
+#         # The objective function we want to minimize
+#         return abs(kl_divergence(env, p, q) - kl_target)
     
-    q_initial_guess = 0.5  # You may need to adjust this
-    result = sp.optimize.minimize(objective, q_initial_guess, method='L-BFGS-B', bounds=[(0, 1)])
+#     q_initial_guess = 0.5  # You may need to adjust this
+#     result = sp.optimize.minimize(objective, q_initial_guess, method='L-BFGS-B', bounds=[(0, 1)])
 
-    if result.success:
-        q = result.x[0]  # Take the first element because the result is a 1-element array
-        return q  # return policy
-    else:
-        return print("Optimization failed.")
+#     if result.success:
+#         q = result.x[0]  # Take the first element because the result is a 1-element array
+#         return q  # return policy
+#     else:
+#         return print("Optimization failed.")
 
-# print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
+# # print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
+
+def get_evaluation_policies(env: Graph, p, n):
+    # Construct all possible eval policies
+    tot_steps = n*100
+    qs = np.linspace(0, 1, tot_steps)
+
+    # Store corresponding KL divergence for each eval policy
+    qs_with_kl = []
+    for q in qs:
+        kl = kl_divergence(env, p, q)
+        qs_with_kl.append((q,kl))
+
+    # Sort list
+    qs_with_kl = sorted(qs_with_kl, key=lambda x: x[1])
+
+    # Get the max KL divergence (last element)
+    max_kl = qs_with_kl[tot_steps-1][1]
+
+    # Init the target KL divergences
+    target_kls = np.linspace(0, max_kl, n)
+
+    # Init list to store results
+    eval_policies = []
+    # Set first element 
+    eval_policies.append(qs_with_kl[0][0])
+
+    # Keep track of target KL's with var j
+    j = 1
+    # Loop over all possible evaluation policies (with ascending KL)
+    for i in range(0,tot_steps-1):
+        # Get two consecutive policy-KL tuples
+        (q0,kl0) = qs_with_kl[i]
+        (q1,kl1) = qs_with_kl[i+1]
+        # Check if target KL falls in between
+        if target_kls[j] >= kl0 and target_kls[j] <= kl1:
+            # Compute distance to candidates
+            dist0 = abs(target_kls[j] - kl0)
+            dist1 = abs(target_kls[j] - kl1)
+            # Pick the closest one
+            if dist0 < dist1:
+                eval_policies.append(q0)
+            else:
+                eval_policies.append(q1)
+            # Move to next target KL
+            j += 1
+            # Stop when out of bounds
+            if j >= n:
+                break
+    
+    return list(zip(eval_policies, target_kls))
 
 # Get max KL value
-def get_kl_max(env: Graph, q_fixed, n, path):
-    # Init all the possible values for p
+def plot_kl_bounds(env: Graph, n, path):
+    # Init all the possible values for p and q
     p = np.linspace(0, 1, n)
     q = np.linspace(0, 1, n)
     pv, qv = np.meshgrid(p,q)
@@ -160,7 +210,7 @@ def get_kl_max(env: Graph, q_fixed, n, path):
             # Compute and store KL
             kl[i,j] = kl_divergence(env, pv[i,j], qv[i,j])
 
-    # # Create and save plot
+    # Create and save plot
     fig, ax = plt.subplots( figsize=(10, 10), subplot_kw={'projection': '3d'})
 
     # Set different viewing angles for each subplot
@@ -184,9 +234,3 @@ def get_kl_max(env: Graph, q_fixed, n, path):
 
     # Save the plot
     fig.savefig(path + "KL_bounds_graph_plot.png")
-    
-    # Return maximum KL
-    max_kl = max([kl_divergence(env, 0, q_fixed), kl_divergence(env, 1, q_fixed)])
-    return max_kl
-
-#print(get_kl_max(env, q_fixed= 0.1, n = 50, path="/Documents/IDM_project"))
