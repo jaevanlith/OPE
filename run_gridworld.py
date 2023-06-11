@@ -143,6 +143,95 @@ def get_evaluation_policy(env, b_fixed, kl_target, n, gamma):
 
 # print(get_evaluation_policy(env, 0.2, 1, 30, 0.98))
 
+def get_evaluation_policies(env, p, n):
+    # Construct all possible eval policies
+    tot_steps = n*100
+    qs = np.linspace(0, 1, tot_steps)
+
+    # Store corresponding KL divergence for each eval policy
+    qs_with_kl = []
+    for q in qs:
+        kl = kl_divergence(env, p, q, 0.98)
+        qs_with_kl.append((q,kl))
+
+    # Sort list
+    qs_with_kl = sorted(qs_with_kl, key=lambda x: x[1])
+
+    # Get the max KL divergence (last element)
+    max_kl = qs_with_kl[tot_steps-1][1]
+
+    # Init the target KL divergences
+    target_kls = np.linspace(0, max_kl, n)
+
+    # Init list to store results
+    eval_policies = []
+    # Set first element 
+    eval_policies.append(qs_with_kl[0][0])
+    print(eval_policies)
+    # Keep track of target KL's with var j
+    j = 1
+    # Loop over all possible evaluation policies (with ascending KL)
+    for i in range(0,tot_steps-1):
+        # Get two consecutive policy-KL tuples
+        (q0,kl0) = qs_with_kl[i]
+        (q1,kl1) = qs_with_kl[i+1]
+        # Check if target KL falls in between
+        if target_kls[j] >= kl0 and target_kls[j] <= kl1:
+            # Compute distance to candidates
+            dist0 = abs(target_kls[j] - kl0)
+            dist1 = abs(target_kls[j] - kl1)
+            # Pick the closest one
+            if dist0 < dist1:
+                eval_policies.append(q0)
+            else:
+                eval_policies.append(q1)
+            # Move to next target KL
+            j += 1
+            # Stop when out of bounds
+            if j >= n:
+                break
+    
+    return list(zip(eval_policies, target_kls))
+
+def plot_kl_bounds(env, n, path):
+    # Init all the possible values for p and q
+    p = np.linspace(0, 1, n)
+    q = np.linspace(0, 1, n)
+    pv, qv = np.meshgrid(p,q)
+    # Init KL's
+    kl = np.zeros((n,n))
+
+    # Loop over all (p,q)-pairs
+    for i in range(n):
+        for j in range(n):
+            # Compute and store KL
+            kl[i,j] = kl_divergence(env, pv[i,j], qv[i,j], 0.98)
+
+    # Create and save plot
+    fig, ax = plt.subplots( figsize=(10, 10), subplot_kw={'projection': '3d'})
+
+    # Set different viewing angles for each subplot
+    viewing_angles = [(30, 45), (60, 120), (90, 180)]
+
+    # for i, ax in enumerate(axes):
+    ax.plot_surface(pv,qv ,kl , cmap='viridis')
+    ax.view_init(elev=viewing_angles[0][0], azim=viewing_angles[0][1])
+    ax.set_xlabel('p', fontsize=17)
+    ax.set_ylabel('q', fontsize=17)
+    ax.set_zlabel('KL Divergence', fontsize=17)
+    # ax.set_title('KL Divergence for different values of p and q')
+
+    # Adjust spacing between subplots
+    plt.tight_layout()
+
+    # Check if the directory exists
+    if not os.path.exists(path):
+        # If it doesn't exist, create it
+        os.makedirs(path)
+
+    # Save the plot
+    fig.savefig(path + "KL_bounds_graph_plot.png")
+
 # check_vals = []
 # n_values = list(range(1, 100))
 
