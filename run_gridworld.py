@@ -14,29 +14,12 @@ from matplotlib.ticker import LinearLocator
 from mpl_toolkits.mplot3d import Axes3D
 import os
 
-#from ope.experiment_tools.experiment import ExperimentRunner, analysis
-#from ope.experiment_tools.config import Config
-#from ope.experiment_tools.factory import setup_params
-
 #----------------------------------------------
-env = Gridworld(slippage=0.2)
-eval_policy = 0.2
-base_policy = 0.8
-gamma = 0.98
-
+#env = Gridworld(slippage=0.2)
+#eval_policy = 0.2
+#base_policy = 0.8
+#gamma = 0.98
 #----------------------------------------------
-action_size = env.n_actions
-state_size = env.n_dim
-
-transition_matrix = np.zeros((state_size, action_size, state_size)) # T -> SxAxS
-
-for state in range(state_size):
-    for action in range(action_size):
-        for transition in env.T(state, action, use_slippage=True):
-            prob, next_state = transition
-            transition_matrix[state, action, next_state] += prob
-
-
 # to_grid and from_grid are particular to Gridworld
 # These functions are special to convert an index in a grid to an 'image'
 def to_grid(x, gridsize=[8, 8]):
@@ -58,51 +41,76 @@ def from_grid(x, gridsize=[8, 8]):
             x = np.array([np.argmax(x.reshape(-1))])
     return x
 
-# processor processes the state for storage,  {(processor(x), a, r, processor(x'), done)}
-processor = lambda x: x
+def state_distribution(env, prob_deviate, gamma):
 
-# Set up e-greedy policy using epsilon-optimal
-policy = env.best_policy()
+    action_size = env.n_actions
+    state_size = env.n_dim
 
-# absorbing state for padding if episode ends before horizon is reached. This is environment dependent.
-absorbing_state = processor(np.array([len(policy)]))
+    transition_matrix = np.zeros((state_size, action_size, state_size)) # T -> SxAxS
 
+    for state in range(state_size):
+        for action in range(action_size):
+            for transition in env.T(state, action, use_slippage=True):
+                prob, next_state = transition
+                transition_matrix[state, action, next_state] += prob
+    
+    # processor processes the state for storage,  {(processor(x), a, r, processor(x'), done)}
+    processor = lambda x: x
 
-def kl_divergence(b, e):
+    # Set up e-greedy policy using epsilon-optimal (epsilon is 0.001)
+    policy = env.best_policy()
 
-    pi_b = EGreedyPolicy(model=TabularPolicy(policy, absorbing=absorbing_state), processor=from_grid, prob_deviation=b, action_space_dim=env.n_actions)
-    pi_e = EGreedyPolicy(model=TabularPolicy(policy, absorbing=absorbing_state), processor=from_grid, prob_deviation=e, action_space_dim=env.n_actions)
+    # absorbing state for padding if episode ends before horizon is reached. This is environment dependent.
+    absorbing_state = processor(np.array([len(policy)]))
 
-    policy_b = np.zeros((state_size, action_size))
-    policy_e = np.zeros((state_size, action_size))
+    poli = EGreedyPolicy(model=TabularPolicy(policy, absorbing=absorbing_state), processor=from_grid, prob_deviation=prob_deviate, action_space_dim=env.n_actions)
+    
+    policy_vec = np.zeros((env.n_dim, env.n_actions))
 
     for i in range(state_size):
-        policy_b[i, :] = pi_b.predict(np.array([i]))
+        policy_vec[i, :] = poli.predict(np.array([i]))
 
-    for i in range(state_size):
-        policy_e[i, :] = pi_e.predict(np.array([i]))
+    P_policy = np.sum(policy_vec[:, :, None] * transition_matrix, axis=1)
 
-    P_policy_b = np.sum(policy_b[:, :, None] * transition_matrix, axis=1)
-    P_policy_e = np.sum(policy_e[:, :, None] * transition_matrix, axis=1)
-
-    # Define the initial state distribution (assuming always starting from the first state)
     s0 = np.zeros(state_size)
     s0[0] = 1.0  # start from the first state
 
-    d = (1 - gamma) * np.linalg.inv(np.eye(state_size) - gamma * np.transpose(P_policy_b)) @ s0
-    de = (1 - gamma) * np.linalg.inv(np.eye(state_size) - gamma * np.transpose(P_policy_e)) @ s0
+    d = (1 - gamma) * np.linalg.inv(np.eye(state_size) - gamma * np.transpose(P_policy)) @ s0
 
     d = d[0:64]
-    de = de[0:64]
 
-    return kl_div(d,de).sum()
+    # # Create X, Y coordinates
+    # x = np.arange(int(np.sqrt(state_size)))
+    # y = np.arange(int(np.sqrt(state_size)))
+    # X, Y = np.meshgrid(x, y)
+    # Z = d.reshape((int(np.sqrt(state_size)), int(np.sqrt(state_size))))
+
+    # # Plot a 3D surface
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.plot_surface(X, Y, Z)
+    # ax.set_zlim([0, 0.05])
+    # plt.show()
+
+    return d.sum(), poli, policy_vec, P_policy, d
+
+#print(state_distribution(env, 0.8, 0.98 ))
+
+def kl_divergence(env, b, e, gamma):
+
+    d_b = state_distribution(env, b, gamma)[4]
+    d_e = state_distribution(env, e, gamma)[4]
+
+    return kl_div(d_b,d_e).sum()
+
+# print(kl_divergence(env, 0.2, 0.7931, 0.98))
 
 # Get max KL value
-def get_kl_max(q_fixed, n, path):
+def get_kl_max(env, b_fixed, n, gamma):
     # Init all the possible values for p
-    p = np.linspace(0, 1, n)
-    q = np.linspace(0, 1, n)
-    pv, qv = np.meshgrid(p,q)
+    e = np.linspace(0, 1, n)
+    b = np.linspace(0, 1, n)
+    bv, ev = np.meshgrid(b,e)
     # Init KL's
     kl = np.zeros((n,n))
 
@@ -110,8 +118,51 @@ def get_kl_max(q_fixed, n, path):
     for i in range(n):
         for j in range(n):
             # Compute and store KL
-            kl[i,j] = kl_divergence(pv[i,j], qv[i,j])
+            kl[i,j] = kl_divergence(env, bv[i,j], ev[i,j], gamma)
 
+    # Return maximum KL
+    max_kl = max([kl_divergence(env, b_fixed, 0, gamma), kl_divergence(env, b_fixed, 1, gamma)])
+    return max_kl, bv, ev, kl
+
+#print(get_kl_max(env, 0.2, 10, 0.98)[0])
+
+def get_evaluation_policy(env, b_fixed, kl_target, n, gamma):
+    # Init all the possible values for e
+    e_values = np.linspace(0, 1, n)
+    b_values = np.full(n, b_fixed)
+    
+    # Compute KL divergences for all e
+    kl_values = [kl_divergence(env, b_values[i], e_values[i], gamma) for i in range(n)]
+    
+    #print('kl_target', kl_target)
+    # Find the index of the e value that results in KL divergence closest to kl_target
+    closest_index = np.argmin(np.abs(np.array(kl_values) - kl_target))
+    
+    # Return the corresponding e value
+    return e_values[closest_index]
+
+# print(get_evaluation_policy(env, 0.2, 1, 30, 0.98))
+
+# check_vals = []
+# n_values = list(range(1, 100))
+
+# for j in np.linspace(0,1,10):
+#     check_val = []
+#     for i in range(1, 100):
+#         xx = get_evaluation_policy(j, 1, i)
+#         check_val.append(xx)
+#     check_vals.append(check_val)
+
+# 
+# for j, check_val in zip(np.linspace(0,1,10), check_vals):
+#     plt.plot(n_values, check_val, label=f'j={j:.2f}')
+
+# plt.legend()  # Add a legend to distinguish the lines
+# plt.show()
+
+
+
+def plot(pv, qv, kl):
     # # Create and save plot
     fig, ax = plt.subplots( figsize=(10, 10), subplot_kw={'projection': '3d'})
 
@@ -124,59 +175,13 @@ def get_kl_max(q_fixed, n, path):
     ax.set_xlabel('p', fontsize=17)
     ax.set_ylabel('q', fontsize=17)
     ax.set_zlabel('KL Divergence', fontsize=17)
-    # ax.set_title('KL Divergence for different values of p and q')
-
-    # Adjust spacing between subplots
-    plt.tight_layout()
     plt.show()
-    # Check if the directory exists
-    if not os.path.exists(path):
-        # If it doesn't exist, create it
-        os.makedirs(path)
 
-    # Save the plot
-    fig.savefig(path + "KL_bounds_graph_plot.png")
-    
-    # Return maximum KL
-    max_kl = max([kl_divergence(0, q_fixed), kl_divergence(1, q_fixed)])
-    return max_kl
+    return 
 
-print(get_kl_max(q_fixed= 0.1, n = 50, path="home/mayank/Documents/IDM_project"))
+#print(plot(kl_vals[1],kl_vals[2],kl_vals[3]))
 
-
-
-
-# policy_b = policy_b[0:64]
-# # Reshape it to a grid shape (assuming it is 8x8)
-# policy_b = policy_b.reshape(8, 8, 4)
-
-# # Prepare a grid
-# X, Y = np.meshgrid(np.arange(0.5, 8, 1), np.arange(0.5, 8, 1))
-
-# # Compute actions for each point of the grid
-# actions = np.argmax(policy, axis=-1)
-
-# # Create a mapping from actions to arrow directions (assuming the actions order is [up, right, down, left])
-# arrow_mapping = {0: (0, 1), 1: (1, 0), 2: (0, -1), 3: (-1, 0)}
-
-# # Get arrow directions
-# U, V = np.zeros_like(actions), np.zeros_like(actions)
-# for action, (dx, dy) in arrow_mapping.items():
-#     U[actions == action] = dy
-#     V[actions == action] = dx  # Negate to make the plot origin at the top left, like a matrix
-# print(U)
-# print(V)
-# # Create the plot
-# plt.figure(figsize=(8, 8))
-# plt.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=1)
-# plt.xlim(-1, 8)
-# plt.ylim(-1, 8)
-# plt.xticks(np.arange(0, 8, 1))
-# plt.yticks(np.arange(0, 8, 1))
-# plt.grid(visible=True)
-# plt.gca().invert_yaxis()  # To align the (0,0) with top left
-# plt.show()
-
+#---------------------------------Plots below-------------------------------------#
 # from mpl_toolkits.mplot3d import Axes3D
 # # Create X, Y coordinates
 # x = np.arange(int(np.sqrt(state_size)))
