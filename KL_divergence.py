@@ -143,7 +143,7 @@ def get_evaluation_policy(env, p, kl_target):
     else:
         return print("Optimization failed.")
 
-print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
+# print("policy should be",get_evaluation_policy(env, p = 0.1, kl_target = 0.2))
 
 # Get max KL value
 def get_kl_max(env: Graph, q_fixed, n, path):

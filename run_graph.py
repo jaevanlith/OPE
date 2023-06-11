@@ -82,8 +82,7 @@ def run(experiment_args, kl_target):
         absorbing_state = processor(np.array([env.n_dim - 1]))
 
         # Calculated evaluation policy for the given kl_divergence
-        cfg.eval_policy = get_evaluation_policy(env, kl_target, cfg.base_policy)
-
+        cfg.eval_policy = get_evaluation_policy(env, cfg.base_policy, kl_target)
         # Setup policies
         actions = [0, 1]
         pi_e = BasicPolicy(
@@ -130,7 +129,7 @@ def run_kl_experiment(experiment_args):
         
         # Get bounds of KL divergence
         max_kl_divergence = get_kl_max(env, pi_b, 50, path=experiment_args["image_path"])
-        kl_divergence = np.linspace(0, max_kl_divergence, 10)
+        kl_divergence = np.linspace(0, max_kl_divergence, experiment_args['kl_divergence_steps'])
 
         # Init results
         results = []
@@ -143,15 +142,18 @@ def run_kl_experiment(experiment_args):
             experiment_args["p0"] = pi_b
 
             # Run experiments
-            graph_results, dic = run(experiment_args, kl)
-
-            # Save results
-            results.append({"behavior_policy":  pi_b,
-                            "eval_policy": dic["eval_policy"],
+            graph_results = run(experiment_args, kl)
+            print
+            dict_results = {"behavior_policy":  pi_b,
+                            "eval_policy": graph_results[1]['eval_policy'],
                             "kl_divergence": kl,
                             "results": graph_results
-                            })
-
+                            }
+            print('behavior_policy: ' , dict_results["behavior_policy"] , ' calculated_eval_policy: ' , dict_results["eval_policy"] , ' kl_divergence: ' , dict_results["kl_divergence"])
+            # Save results
+            results.append(dict_results)
+            
+        
         results_all_behaviors.append(results)
 
     return results_all_behaviors
@@ -168,6 +170,8 @@ def customize_args(experiment_args, cmd_args):
     # Set amount of trials
     experiment_args["num_trials"] = cmd_args["num_trials"]
 
+    # Set number of KL divergence steps
+    experiment_args['kl_divergence_steps'] = cmd_args['kl_divergence_steps']
     # Set values for N
     experiment_args["Nvals"] = [int(N) for N in cmd_args["Nvals"].split(",")]
 
@@ -180,7 +184,7 @@ def customize_args(experiment_args, cmd_args):
 
     # Set behavior policies
     experiment_args["behavior_policies"] = [float(pi_b) for pi_b in cmd_args["behavior_policies"].split(",")]
-
+    
     # Set image path
     experiment_args["image_path"] = cmd_args["image_path"]
 
@@ -188,7 +192,7 @@ def customize_args(experiment_args, cmd_args):
 
 
 # Save date to files
-def save_results(unweighted_results, weighted_results, path):
+def save_results(results, cmd_args, path, weighted):
 
     def default(obj):
         if isinstance(obj, np.ndarray):
@@ -204,59 +208,65 @@ def save_results(unweighted_results, weighted_results, path):
         # If it doesn't exist, create it
         os.makedirs(path)
 
-    with open(path + "weighted_results" +cmd_args['behavior_policies'].replace(".", "").replace(",", "_") +".json", "w") as weighted:
-            json.dump(weighted_results, weighted, indent = 4, default=default)
-    weighted.close()
+    if weighted:
+        with open(path + "weighted_results" +cmd_args['behavior_policies'].replace(".", "").replace(",", "_") +".json", "w") as weighted_data:
+                json.dump(results, weighted_data, indent = 4, default=default)
+        weighted_data.close()
+    else:
+        with open(path + "unweighted_results"+ cmd_args['behavior_policies'].replace(".", "").replace(",", "_")  +".json", "w") as unweighted_data:
+                json.dump(results, unweighted_data, indent=4, default=default)
+        unweighted_data.close()
 
-    with open(path + "unweighted_results"+ cmd_args['behavior_policies'].replace(".", "").replace(",", "_")  +".json", "w") as unweighted:
-            json.dump(unweighted_results, unweighted, indent=4, default=default)
-    unweighted.close()
-
-def plot_results(cmd_args, fixed_n_value=None):
+def plot_results(results, weighted, cmd_args, fixed_n_value=None):
     path = cmd_args['image_path']
 
-    if not os.path.exists(path + "weighted/"):
-        os.makedirs(path + "weighted/")
+    if weighted:
+        if not os.path.exists(path + "weighted/"):
+            os.makedirs(path + "weighted/")
 
-    if not os.path.exists(path + "unweighted/"):
-        os.makedirs(path + "unweighted/")
-
-    # When results are for all n, make 3D plot
-    if fixed_n_value is None:
-        for i in weighted_graph_results:
-            fixed_n_value = 10
-            neurips_plot_kl_3D(raw_results=i, 
+        # When results are for all n, make 3D plot
+        if fixed_n_value is None:
+            for i in results:
+                fixed_n_value = 10
+                neurips_plot_kl_3D(raw_results=i, 
                                filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
                                weighted=True,  
                                cycler_small=True)
-            neurips_plot_kl_2D(raw_results=i, 
-                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+                neurips_plot_kl_2D(raw_results=i, 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
                                weighted=True,  
                                cycler_small=True, 
                                fixed_n_value=fixed_n_value)
-        for j in unweighted_graph_results:    
-            neurips_plot_kl_3D(raw_results=j,
-                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
-                               weighted=False, 
-                               cycler_small=True)
-            neurips_plot_kl_2D(raw_results=j,
-                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
-                               weighted=False, 
+        # If n was fixed, make 2D plot
+        else:
+            for i in weighted_graph_results:
+                neurips_plot_kl_2D(raw_results=i, 
+                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
+                               weighted=True,  
                                cycler_small=True, 
                                fixed_n_value=fixed_n_value)
-
-            
-    # If n was fixed, make 2D plot
+                
     else:
-        for i in weighted_graph_results:
-            neurips_plot_kl_2D(raw_results=i, 
-                               filename=path + "weighted/bp=" + str(i[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
-                               weighted=True,  
-                               cycler_small=True, 
-                               fixed_n_value=fixed_n_value)
-        for j in unweighted_graph_results:
-            neurips_plot_kl_2D(raw_results=j,
-                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(cmd_args['fix_n_value']) + "_graph_plot_kl_2D", 
+        if not os.path.exists(path + "unweighted/"):
+            os.makedirs(path + "unweighted/")
+
+        if fixed_n_value is None:
+            fixed_n_value = 10
+            for j in results:    
+                neurips_plot_kl_3D(raw_results=j,
+                                filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_graph_plot_kl_3D", 
+                                weighted=False, 
+                                cycler_small=True)
+                neurips_plot_kl_2D(raw_results=j,
+                                filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
+                                weighted=False, 
+                                cycler_small=True, 
+                                fixed_n_value=fixed_n_value)
+
+        else:
+            for j in unweighted_graph_results:
+                neurips_plot_kl_2D(raw_results=j,
+                               filename=path + "unweighted/bp=" + str(j[0]["behavior_policy"]).replace(".", "") + "_n="+ str(fixed_n_value) + "_graph_plot_kl_2D", 
                                weighted=False, 
                                cycler_small=True, 
                                fixed_n_value=fixed_n_value)
@@ -274,40 +284,63 @@ if __name__ == '__main__':
     parser.add_argument('--Nvals', type=str, default="256,512,1024,2048,4096,8192")
     # To run for a fixed n, set this to the value of n 
     parser.add_argument('--fix_n_value', type=int, default=None)
+    # Number of steps to run for KL divergence
+    parser.add_argument('--kl_divergence_steps', type=int, default=10)
     # Behavior policies to run
     parser.add_argument('--behavior_policies', type=str, default="0.5,0.8")
     # Path to which new images are saved
     parser.add_argument('--image_path', type=str, default="./experiment_images/")
     # Path to which new data is saved
     parser.add_argument('--save_path', type=str, default="./experiment_results/")
+    # Runs experiments for weighted or unweighted estimator
+    parser.add_argument('--weighted', type=bool, default=True)
+    parser.add_argument('--unweighted', type=bool, default=False)
     # If data is already generated, load it instead of generating it
     parser.add_argument('--load_data_path_weighted', type=str, default=None)
     parser.add_argument('--load_data_path_unweighted', type=str, default=None)
     cmd_args = dict(vars(parser.parse_args()))
 
-    if cmd_args["load_data_path_weighted"] is None:
-        # Customize experiment arguments
-        weighted_graph_args = customize_args(weighted_graph_args, cmd_args)
-        # Run trials
-        weighted_graph_results = run_kl_experiment(weighted_graph_args)
-    else:
-        # Load data when already there
-        weighted_graph_results = json.load(open(cmd_args["load_data_path_weighted"]))
+    if cmd_args["weighted"]:
 
-    if cmd_args["load_data_path_unweighted"] is None:
-        # Customize experiment arguments
-        unweighted_graph_args = customize_args(unweighted_graph_args, cmd_args)
-        # Run trials
-        unweighted_graph_results = run_kl_experiment(unweighted_graph_args)
-    else:
-        # Load data when already there
-        unweighted_graph_results = json.load(open(cmd_args["load_data_path_unweighted"]))
+        if cmd_args["load_data_path_weighted"] is None:
+            print("Running weighted graph experiment")
+            # Customize experiment arguments
+            weighted_graph_args = customize_args(weighted_graph_args, cmd_args)
+            # Run trials
+            weighted_graph_results = run_kl_experiment(weighted_graph_args)
 
-    # Save results
-    save_results(unweighted_graph_results, weighted_graph_results, cmd_args["save_path"])
+            #Save results
+            save_results(weighted_graph_results, cmd_args, cmd_args["save_path"], True)
 
-    # Plot Results
-    plot_results(cmd_args, fixed_n_value=cmd_args["fix_n_value"])
+        else:
+            print("Loading weighted data from: ", cmd_args["load_data_path_weighted"])
+            # Load data when already there
+            weighted_graph_results = json.load(open(cmd_args["load_data_path_weighted"]))
+
+        # Plot results
+        plot_results(weighted_graph_results, True, cmd_args, fixed_n_value=cmd_args['fix_n_value'])
+
+
+    if cmd_args["unweighted"]:
+        if cmd_args["load_data_path_unweighted"] is None:
+            print("Running unweighted graph experiment")
+            # Customize experiment arguments
+            unweighted_graph_args = customize_args(unweighted_graph_args, cmd_args)
+            # Run trials
+            unweighted_graph_results = run_kl_experiment(unweighted_graph_args)
+
+            #Save results
+            save_results(unweighted_graph_results, cmd_args, cmd_args["save_path"], False)
+        else:
+            print("Loading unweighted data from: ", cmd_args["load_data_path_unweighted"])
+            # Load data when already there
+            unweighted_graph_results = json.load(open(cmd_args["load_data_path_unweighted"]))
+            
+    
+        #Plot results
+        plot_results(unweighted_graph_results, False, cmd_args, fixed_n_value=cmd_args['fix_n_value'])
+
+    
 
     
 
