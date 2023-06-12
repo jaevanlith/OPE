@@ -2,6 +2,7 @@ import numpy as np
 from itertools import cycle
 from matplotlib import pyplot as plt
 import json
+import os
 
 def extract_nstep(results_dict, args, weighted=True, fixed_n_value=None):
     output = []
@@ -247,6 +248,120 @@ def neurips_plot_kl_3D(raw_results, filename, weighted, cycler_small=False):
 
         # Show the plot
         fig.savefig(filename + "_nval_" + str(nval).replace(".", ""))
+
+def neurips_plot_behavior_2D(behavior_policies, save_path, image_path, weighted, cycler_small=False, fixed_n_value=None):
+    # Init figure
+    fig, axes = plt.subplots(1, 3, figsize=(15, 3))
+    fig.tight_layout(rect=[0, 0.03, 0.8, 0.95])
+    linecycler, markercycler, colorcycler = get_cyclers(small=cycler_small)
+    
+    # Loop over given behavior policies to be plotted
+    for pi_b in behavior_policies:
+        # Load data
+        path = save_path + ('weighted' if weighted else 'unweighted') + '_results' + str(pi_b).replace('.', '') + '.json'
+
+        # Stop if file doesn't exists
+        if not os.path.exists(path):
+            continue
+
+        # Load data
+        f = open(path)
+        raw_results = json.load(f)
+
+        clean_results = format_results_kl_2d(raw_results[0], fixed_n_value=fixed_n_value)
+
+        for (errs, errs_se, ests, ests_var) in zip(clean_results['errs_mn'], clean_results['errs_se'], clean_results['ests_mn'], clean_results['ests_var']):
+
+            color = next(colorcycler)
+            linestyle = next(linecycler)
+            marker = next(markercycler)
+            
+            # MSE
+            axes[0].plot(clean_results['kl_div'], errs, color=color, linestyle=linestyle, label=pi_b, marker=marker)
+            axes[0].fill_between(clean_results['kl_div'], errs-1.96*errs_se, errs+1.96*errs_se, alpha=0.25)
+            axes[0].set_yscale('log')
+            axes[0].set_xlabel("KL Divergence")
+            axes[0].set_title("MSE")
+            
+            # Bias squared
+            axes[1].plot(clean_results['kl_div'], abs(ests - clean_results["true_val"])**2, color=color, linestyle=linestyle, marker=marker)
+            axes[1].set_xlabel("KL Divergence")
+            axes[1].set_title("Bias Squared Estimate")
+            axes[1].set_yscale('log')
+            
+            # Variance.
+            axes[2].plot(clean_results['kl_div'], ests_var, color=color, linestyle=linestyle, marker=marker)
+            axes[2].set_xlabel("KL Divergence")
+            axes[2].set_title("Variance Estimate")
+            axes[2].set_yscale('log')
+        
+    fig.legend(title="Behavior Policy", loc="center right", bbox_to_anchor=(0.88, 0.6))
+
+    path = image_path + ('weighted' if weighted else 'unweighted')
+    # Check if the directory exists
+    if not os.path.exists(path):
+        # If it doesn't exist, create it
+        os.makedirs(path)
+
+    filename = path + '/behaviors_n=' + str(fixed_n_value) + '.png'
+    fig.savefig(filename)
+
+def neurips_plot_ns_2D(ns, behavior_policy, save_path, image_path, weighted, cycler_small=False):
+    # Init figure
+    fig, axes = plt.subplots(1, 3, figsize=(15, 3))
+    fig.tight_layout(rect=[0, 0.03, 0.8, 0.95])
+    linecycler, markercycler, colorcycler = get_cyclers(small=cycler_small)
+    
+    # Loop over given behavior policies to be plotted
+    for fixed_n_value in ns:
+        # Load data
+        path = save_path + ('weighted' if weighted else 'unweighted') + '_results' + str(behavior_policy).replace('.', '') + '.json'
+
+        # Stop if file doesn't exists
+        if not os.path.exists(path):
+            continue
+
+        # Load data
+        f = open(path)
+        raw_results = json.load(f)
+
+        clean_results = format_results_kl_2d(raw_results[0], fixed_n_value=fixed_n_value)
+
+        for (errs, errs_se, ests, ests_var) in zip(clean_results['errs_mn'], clean_results['errs_se'], clean_results['ests_mn'], clean_results['ests_var']):
+
+            color = next(colorcycler)
+            linestyle = next(linecycler)
+            marker = next(markercycler)
+            
+            # MSE
+            axes[0].plot(clean_results['kl_div'], errs, color=color, linestyle=linestyle, label=fixed_n_value, marker=marker)
+            axes[0].fill_between(clean_results['kl_div'], errs-1.96*errs_se, errs+1.96*errs_se, alpha=0.25)
+            axes[0].set_yscale('log')
+            axes[0].set_xlabel("KL Divergence")
+            axes[0].set_title("MSE")
+            
+            # Bias squared
+            axes[1].plot(clean_results['kl_div'], abs(ests - clean_results["true_val"])**2, color=color, linestyle=linestyle, marker=marker)
+            axes[1].set_xlabel("KL Divergence")
+            axes[1].set_title("Bias Squared Estimate")
+            axes[1].set_yscale('log')
+            
+            # Variance.
+            axes[2].plot(clean_results['kl_div'], ests_var, color=color, linestyle=linestyle, marker=marker)
+            axes[2].set_xlabel("KL Divergence")
+            axes[2].set_title("Variance Estimate")
+            axes[2].set_yscale('log')
+        
+    fig.legend(title="n-value", loc="center right", bbox_to_anchor=(0.88, 0.6))
+
+    path = image_path + ('weighted' if weighted else 'unweighted')
+    # Check if the directory exists
+    if not os.path.exists(path):
+        # If it doesn't exist, create it
+        os.makedirs(path)
+        
+    filename = path + '/ns_bp=' + str(behavior_policy) + '.png'
+    fig.savefig(filename)
 
     
 
