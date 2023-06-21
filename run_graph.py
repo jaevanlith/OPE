@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 from matplotlib import pyplot as plt
 from datetime import date
-from KL_divergence import get_evaluation_policies, plot_kl_bounds
+from graph_KL_divergence import get_evaluation_policies, plot_kl_bounds
 
 from ope.envs.graph import Graph
 from ope.models.basics import BasicPolicy
