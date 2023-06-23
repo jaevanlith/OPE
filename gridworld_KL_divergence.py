@@ -125,7 +125,10 @@ def get_evaluation_policy(env, b_fixed, kl_target, n, gamma):
 def get_evaluation_policies(env, p, n):
     # Construct all possible eval policies
     tot_steps = n*100
-    qs = np.linspace(0, 1, tot_steps)
+    if p > 0.5:
+        qs = np.linspace(0, p, tot_steps)
+    else:
+        qs = np.linspace(p, 1, tot_steps)
 
     # Store corresponding KL divergence for each eval policy
     qs_with_kl = []
@@ -146,7 +149,7 @@ def get_evaluation_policies(env, p, n):
     eval_policies = []
     # Set first element 
     eval_policies.append(qs_with_kl[0][0])
-    print(eval_policies)
+
     # Keep track of target KL's with var j
     j = 1
     # Loop over all possible evaluation policies (with ascending KL)

@@ -280,7 +280,7 @@ def plot_results(results, weighted, cmd_args, fixed_n_value=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Graph experiment')
     # Models to run, call "SOPE" to only run one
-    parser.add_argument('--models', type=str, default="n-step")
+    parser.add_argument('--models', type=str, default="SOPE")
     # Horizon of the experiment
     parser.add_argument('--horizon', type=int, default=20)
     # Number of trials to run per experiment  
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     # Number of steps to run for KL divergence
     parser.add_argument('--kl_divergence_steps', type=int, default=10)
     # Behavior policies to run
-    parser.add_argument('--behavior_policies', type=str, default="0.5,0.8")
+    parser.add_argument('--behavior_policies', type=str, default="0.1,0.5,0.9")
     # Path to which new images are saved
     parser.add_argument('--image_path', type=str, default="./experiment_images/")
     # Path to which new data is saved

@@ -21,7 +21,7 @@ To reproduce the results from the paper, see:
 
 The following promps were used to reproduce the results from the paper:
 ```
-!python run_gridworld.py --models "SOPE" --Nvals "1024" --behavior_policies "0.1, 0.5, 0.9" --save_path ./experiment_results/ --image_path ./experiment_images/ --weighted True --unweighted True
+!python run_graph.py --models "SOPE" --Nvals "1024" --behavior_policies "0.1, 0.5, 0.9" --save_path ./experiment_results/ --image_path ./experiment_images/ --weighted True --unweighted True
 ```
 
 ```
