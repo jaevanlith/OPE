@@ -202,7 +202,8 @@ def customize_args(experiment_args, cmd_args):
         experiment_args["nstep_custom_ns"] = None
     # Set behavior policies
     experiment_args["behavior_policies"] = [float(pi_b) for pi_b in cmd_args["behavior_policies"].split(",")]
-    
+    # set nstept
+    experiment_args["nstep_int"] = cmd_args["nstep_int"]
     # Set image path
     experiment_args["image_path"] = cmd_args["image_path"]
     return experiment_args
