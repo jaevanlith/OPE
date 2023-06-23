@@ -39,7 +39,7 @@ def get_configuration(experiment_args, seed):
         "secret": 0,
         "modeltype": "tabular",
         "to_regress_pi_b": False,
-        "nstep_int": 1,
+        "nstep_int": experiment_args["nstep_int"],
         "weighted": experiment_args["weighted"],
         "nstep_custom_ns": experiment_args["nstep_custom_ns"]
     }
@@ -285,6 +285,8 @@ if __name__ == '__main__':
     parser.add_argument('--horizon', type=int, default=20)
     # Number of trials to run per experiment  
     parser.add_argument('--num_trials', type=int, default=100)
+    # add steps between n values
+    parser.add_argument('--nstep_int', type=int, default=1)
     # Values for N
     parser.add_argument('--Nvals', type=str, default="256,512,1024,2048,4096,8192")
     # To run for a fixed n, set this to the value of n 
