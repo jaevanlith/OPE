@@ -126,7 +126,7 @@ def get_evaluation_policies(env, p, n):
     # Construct all possible eval policies
     tot_steps = n*100
     if p > 0.5:
-        qs = np.linspace(0, p, tot_steps)
+        qs = np.linspace(0.001, p, tot_steps)
     else:
         qs = np.linspace(p, 1, tot_steps)
 
