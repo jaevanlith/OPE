@@ -1,6 +1,6 @@
 # State Visitation Correction Robustness in Off-policy Reinforcement Learning
 
-This respository contains code for the following paper:
+This respository contains code for the following [paper](https://github.com/jaevanlith/OPE/blob/master/paper.pdf):
 > Mayank Prashar, Jochem van Lith and Joost Jansen. \
 State Visitation Correction in Off-Policy Reinforcement Learning.
 
